@@ -1,0 +1,17 @@
+# Supabase project config for the Wastel CLI workflow.
+project_id = "wastel"
+
+[functions.create-schedule]
+verify_jwt = true
+
+[functions.stk-callback]
+verify_jwt = false
+
+[functions.b2c-send]
+verify_jwt = false
+
+[functions.b2c-result]
+verify_jwt = false
+
+[functions.b2c-timeout]
+verify_jwt = false

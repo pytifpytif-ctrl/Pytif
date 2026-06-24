@@ -1,0 +1,673 @@
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
+import { api } from '../lib/api.js'
+import { Spinner, Alert, StatusBadge } from '../components/ui.jsx'
+import TimeWheel from '../components/TimeWheel.jsx'
+import MonthCalendar from '../components/MonthCalendar.jsx'
+import {
+  PATTERNS,
+  WEEKDAY_LABELS,
+  DURATION_PRESETS,
+  computeActiveDates,
+  addDays,
+  startOfToday,
+  toDateKey,
+  fromDateKey,
+} from '../lib/schedule.js'
+import { depositBreakdown, feeFor } from '../lib/fees.js'
+import { formatKes, formatTime12, formatDateShort, formatPhone } from '../lib/format.js'
+
+const newSlot = (overrides = {}) => ({
+  key: Math.random().toString(36).slice(2),
+  send_time: '06:00',
+  amount: '',
+  label: '',
+  ...overrides,
+})
+
+export default function ScheduleBuilder() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const isRecycle = Boolean(id)
+
+  const [loadingDraft, setLoadingDraft] = useState(isRecycle)
+  const [name, setName] = useState('')
+  const [pattern, setPattern] = useState(PATTERNS.EVERY_DAY)
+  const [activeDays, setActiveDays] = useState([1, 2, 3, 4, 5])
+  const [activeDates, setActiveDates] = useState([])
+  const [slots, setSlots] = useState([newSlot({ label: 'Morning fare', amount: 100 })])
+  const [duration, setDuration] = useState({ type: 'preset', days: 30, endDateKey: null })
+  const [destination] = useState(user?.mpesa_number || '')
+
+  const [stepIndex, setStepIndex] = useState(0)
+  const [timeEditor, setTimeEditor] = useState(null)
+  const [error, setError] = useState('')
+  const [phase, setPhase] = useState('build') // build | stk | success
+  const [result, setResult] = useState(null)
+
+  useEffect(() => {
+    if (!isRecycle) return
+    ;(async () => {
+      const draft = await api.getRecycleDraft(id)
+      setName(draft.name + ' (recycled)')
+      setPattern(draft.pattern)
+      setActiveDays(draft.activeDays?.length ? draft.activeDays : [1, 2, 3, 4, 5])
+      setActiveDates(draft.activeDates || [])
+      setSlots(
+        (draft.slots || []).map((s) => newSlot({ send_time: s.send_time, amount: s.amount, label: s.label })),
+      )
+      setLoadingDraft(false)
+    })()
+  }, [id, isRecycle])
+
+  // Dynamic step list based on pattern.
+  const steps = useMemo(() => {
+    if (pattern === PATTERNS.CUSTOM_DATES) return ['pattern', 'dates', 'slots', 'destination', 'summary']
+    if (pattern === PATTERNS.SPECIFIC_DAYS) return ['pattern', 'days', 'slots', 'duration', 'destination', 'summary']
+    return ['pattern', 'slots', 'duration', 'destination', 'summary']
+  }, [pattern])
+
+  const step = steps[Math.min(stepIndex, steps.length - 1)]
+
+  // Resolve dates + breakdown.
+  const resolved = useMemo(() => {
+    const start = startOfToday()
+    let end = start
+    if (pattern === PATTERNS.CUSTOM_DATES) {
+      const dates = computeActiveDates({ pattern, activeDates })
+      return { startDate: dates[0] || null, endDate: dates[dates.length - 1] || null, dates }
+    }
+    if (duration.type === 'endDate' && duration.endDateKey) {
+      end = fromDateKey(duration.endDateKey)
+    } else {
+      end = addDays(start, Math.max(1, duration.days) - 1)
+    }
+    const dates = computeActiveDates({ pattern, activeDays, startDate: start, endDate: end })
+    return { startDate: start, endDate: end, dates }
+  }, [pattern, activeDays, activeDates, duration])
+
+  const slotsForCalc = slots.map((s) => ({ amount: Number(s.amount) || 0 }))
+  const breakdown = depositBreakdown(slotsForCalc, resolved.dates.length)
+  const dailyTotal = slots.reduce((sum, s) => sum + (Number(s.amount) || 0), 0)
+
+  const next = () => {
+    setError('')
+    const err = validateStep(step)
+    if (err) return setError(err)
+    setStepIndex((i) => Math.min(i + 1, steps.length - 1))
+  }
+  const back = () => {
+    setError('')
+    if (stepIndex === 0) return navigate(-1)
+    setStepIndex((i) => i - 1)
+  }
+
+  function validateStep(s) {
+    if (s === 'pattern' && !name.trim()) return 'Give your schedule a name.'
+    if (s === 'days' && activeDays.length === 0) return 'Pick at least one day.'
+    if (s === 'dates' && activeDates.length === 0) return 'Select at least one date.'
+    if (s === 'slots') {
+      const valid = slots.filter((x) => Number(x.amount) > 0)
+      if (valid.length === 0) return 'Add at least one send with an amount.'
+    }
+    if (s === 'summary' && resolved.dates.length === 0) return 'This schedule has no active days. Adjust your dates.'
+    return ''
+  }
+
+  const lockMoney = async () => {
+    setError('')
+    setPhase('stk')
+    try {
+      const payload = {
+        name,
+        pattern,
+        activeDays,
+        activeDates,
+        startDate: resolved.startDate ? resolved.startDate.toISOString() : null,
+        endDate: resolved.endDate ? resolved.endDate.toISOString() : null,
+        destination,
+        recycledFrom: isRecycle ? id : null,
+        slots: slots
+          .filter((s) => Number(s.amount) > 0)
+          .map((s) => ({ send_time: s.send_time, amount: Number(s.amount), label: s.label, is_active: true })),
+      }
+      const created = await api.createSchedule(payload)
+      const confirmed = await api.confirmDeposit(created.depositId)
+      const firstPending = (await api.getSchedule(created.scheduleId)).transactions.find(
+        (t) => t.status === 'PENDING',
+      )
+      setResult({
+        scheduleId: created.scheduleId,
+        mpesaReference: confirmed.mpesaReference,
+        firstSend: firstPending?.scheduled_for || resolved.dates[0]?.toISOString(),
+        total: breakdown.total,
+      })
+      setPhase('success')
+    } catch (err) {
+      setError(err.message)
+      setPhase('build')
+      setStepIndex(steps.indexOf('summary'))
+    }
+  }
+
+  if (loadingDraft) {
+    return (
+      <div className="flex h-screen items-center justify-center text-brand-600">
+        <Spinner className="h-8 w-8" />
+      </div>
+    )
+  }
+
+  if (phase === 'stk') return <StkWaiting total={breakdown.total} number={destination} />
+  if (phase === 'success') return <SuccessScreen result={result} navigate={navigate} />
+
+  const progress = ((stepIndex + 1) / steps.length) * 100
+
+  return (
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-[#f4f6fb]">
+      {/* Top bar + progress */}
+      <div className="sticky top-0 z-20 bg-[#f4f6fb]/95 px-5 pb-3 pt-5 backdrop-blur">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={back}
+            className="grid h-9 w-9 place-items-center rounded-full bg-white text-ink shadow-card"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <div className="flex-1">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+          <span className="text-xs font-semibold text-ink-muted">
+            {stepIndex + 1}/{steps.length}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex-1 px-5 pb-32 pt-4">
+        {error && (
+          <div className="mb-4">
+            <Alert kind="error">{error}</Alert>
+          </div>
+        )}
+
+        {step === 'pattern' && (
+          <StepPattern name={name} setName={setName} pattern={pattern} setPattern={setPattern} isRecycle={isRecycle} />
+        )}
+        {step === 'days' && <StepDays activeDays={activeDays} setActiveDays={setActiveDays} />}
+        {step === 'dates' && <StepDates activeDates={activeDates} setActiveDates={setActiveDates} />}
+        {step === 'slots' && (
+          <StepSlots
+            slots={slots}
+            setSlots={setSlots}
+            dailyTotal={dailyTotal}
+            openTime={(key) => setTimeEditor(key)}
+          />
+        )}
+        {step === 'duration' && (
+          <StepDuration duration={duration} setDuration={setDuration} activeDays={resolved.dates.length} pattern={pattern} />
+        )}
+        {step === 'destination' && <StepDestination destination={destination} />}
+        {step === 'summary' && (
+          <StepSummary
+            name={name}
+            pattern={pattern}
+            breakdown={breakdown}
+            dailyTotal={dailyTotal}
+            resolved={resolved}
+            destination={destination}
+            activeDays={activeDays}
+          />
+        )}
+      </div>
+
+      {/* Sticky footer CTA */}
+      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-slate-100 bg-white/95 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
+        {step === 'slots' && (
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="text-ink-muted">Daily total</span>
+            <span className="text-lg font-extrabold text-ink">{formatKes(dailyTotal)}</span>
+          </div>
+        )}
+        {step === 'summary' ? (
+          <button className="btn-primary w-full" onClick={lockMoney}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" strokeWidth="2" />
+              <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="2" />
+            </svg>
+            Lock my money · {formatKes(breakdown.total)}
+          </button>
+        ) : (
+          <button className="btn-primary w-full" onClick={next}>
+            Continue
+          </button>
+        )}
+      </div>
+
+      <TimeWheel
+        open={timeEditor !== null}
+        value={slots.find((s) => s.key === timeEditor)?.send_time || '06:00'}
+        onClose={() => setTimeEditor(null)}
+        onConfirm={(time) =>
+          setSlots((prev) => prev.map((s) => (s.key === timeEditor ? { ...s, send_time: time } : s)))
+        }
+      />
+    </div>
+  )
+}
+
+/* ----------------- Steps ----------------- */
+
+function StepPattern({ name, setName, pattern, setPattern, isRecycle }) {
+  const options = [
+    { id: PATTERNS.EVERY_DAY, title: 'Every day', desc: 'Same sends, every single day', icon: '🔁' },
+    { id: PATTERNS.SPECIFIC_DAYS, title: 'Specific days', desc: 'Choose which weekdays', icon: '📆' },
+    { id: PATTERNS.CUSTOM_DATES, title: 'Custom dates', desc: 'Pick exact calendar dates', icon: '🎯' },
+  ]
+  return (
+    <div className="animate-fade-in">
+      <h1 className="text-2xl font-extrabold text-ink">Name your schedule</h1>
+      <p className="mb-4 mt-1 text-ink-muted">A label only you see — like “Daily transport”.</p>
+      <input
+        className="field mb-7"
+        placeholder="e.g. Daily transport & meals"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+
+      <h2 className="text-2xl font-extrabold text-ink">Choose your pattern</h2>
+      <p className="mb-4 mt-1 text-ink-muted">How often should sends fire?</p>
+      <div className="space-y-3">
+        {options.map((o) => {
+          const active = pattern === o.id
+          return (
+            <button
+              key={o.id}
+              onClick={() => setPattern(o.id)}
+              className={`flex w-full items-center gap-4 rounded-3xl border-2 p-4 text-left transition ${
+                active ? 'border-brand-600 bg-brand-50' : 'border-transparent bg-white shadow-card'
+              }`}
+            >
+              <span className="text-3xl">{o.icon}</span>
+              <span className="flex-1">
+                <span className="block font-bold text-ink">{o.title}</span>
+                <span className="block text-sm text-ink-muted">{o.desc}</span>
+              </span>
+              <span
+                className={`grid h-6 w-6 place-items-center rounded-full border-2 ${
+                  active ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300'
+                }`}
+              >
+                {active && '✓'}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      {isRecycle && (
+        <p className="mt-5 text-xs text-ink-muted">
+          Recycling a completed schedule. Destination stays your own number (Phase 1).
+        </p>
+      )}
+    </div>
+  )
+}
+
+function StepDays({ activeDays, setActiveDays }) {
+  const toggle = (iso) =>
+    setActiveDays((prev) => (prev.includes(iso) ? prev.filter((d) => d !== iso) : [...prev, iso].sort()))
+  return (
+    <div className="animate-fade-in">
+      <h1 className="text-2xl font-extrabold text-ink">Pick your days</h1>
+      <p className="mb-6 mt-1 text-ink-muted">Tap any day to toggle it on or off.</p>
+      <div className="grid grid-cols-7 gap-1.5">
+        {WEEKDAY_LABELS.map((d) => {
+          const on = activeDays.includes(d.iso)
+          return (
+            <button
+              key={d.iso}
+              onClick={() => toggle(d.iso)}
+              className={`flex flex-col items-center gap-1 rounded-2xl py-3 text-xs font-semibold transition ${
+                on ? 'bg-brand-600 text-white shadow-float' : 'bg-white text-ink-muted shadow-card'
+              }`}
+            >
+              {d.short}
+              <span className={`text-[10px] ${on ? 'text-brand-100' : 'text-slate-400'}`}>
+                {on ? 'ON' : 'OFF'}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      <div className="mt-5 flex gap-2">
+        <button onClick={() => setActiveDays([1, 2, 3, 4, 5])} className="chip bg-white shadow-card text-ink-soft">
+          Weekdays
+        </button>
+        <button onClick={() => setActiveDays([6, 7])} className="chip bg-white shadow-card text-ink-soft">
+          Weekends
+        </button>
+        <button onClick={() => setActiveDays([1, 2, 3, 4, 5, 6, 7])} className="chip bg-white shadow-card text-ink-soft">
+          All week
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function StepDates({ activeDates, setActiveDates }) {
+  return (
+    <div className="animate-fade-in">
+      <h1 className="text-2xl font-extrabold text-ink">Pick your dates</h1>
+      <p className="mb-5 mt-1 text-ink-muted">
+        Tap each date a send should fire. Great for rent on the 1st, a loan on the 15th.
+      </p>
+      <MonthCalendar selected={activeDates} onChange={setActiveDates} multi />
+      <p className="mt-3 text-center text-sm font-medium text-ink-soft">
+        {activeDates.length} date{activeDates.length === 1 ? '' : 's'} selected
+      </p>
+    </div>
+  )
+}
+
+function StepSlots({ slots, setSlots, dailyTotal, openTime }) {
+  const update = (key, patch) => setSlots((prev) => prev.map((s) => (s.key === key ? { ...s, ...patch } : s)))
+  const remove = (key) => setSlots((prev) => prev.filter((s) => s.key !== key))
+  const add = () => {
+    const last = slots[slots.length - 1]
+    const [h] = (last?.send_time || '06:00').split(':').map(Number)
+    const nextHour = Math.min(h + 4, 23)
+    setSlots((prev) => [...prev, newSlot({ send_time: `${String(nextHour).padStart(2, '0')}:00` })])
+  }
+
+  return (
+    <div className="animate-fade-in">
+      <h1 className="text-2xl font-extrabold text-ink">Build your day</h1>
+      <p className="mb-5 mt-1 text-ink-muted">Each row is one send. Add as many as you need.</p>
+
+      <div className="space-y-3">
+        {slots.map((s) => (
+          <div key={s.key} className="card p-3.5">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => openTime(s.key)}
+                className="flex items-center gap-2 rounded-2xl bg-brand-50 px-3 py-2.5 font-bold text-brand-700"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+                  <path d="M12 7v5l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+                {formatTime12(s.send_time)}
+              </button>
+              <div className="relative flex-1">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink-muted">
+                  Ksh
+                </span>
+                <input
+                  className="field py-2.5 pl-12 text-right font-bold"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={s.amount}
+                  onChange={(e) => update(s.key, { amount: e.target.value.replace(/[^\d]/g, '') })}
+                />
+              </div>
+              <button
+                onClick={() => remove(s.key)}
+                disabled={slots.length === 1}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-rose-500 disabled:opacity-30"
+                aria-label="Remove"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+            <input
+              className="mt-2 w-full rounded-xl bg-slate-50 px-3 py-2 text-sm outline-none placeholder:text-slate-400"
+              placeholder="Label (optional) — e.g. Morning fare"
+              value={s.label}
+              onChange={(e) => update(s.key, { label: e.target.value })}
+            />
+            {Number(s.amount) > 0 && (
+              <p className="mt-1.5 pl-1 text-xs text-ink-muted">Fee for this send: {formatKes(feeFor(s.amount))}</p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <button onClick={add} className="btn-ghost mt-4 w-full border-dashed">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+        </svg>
+        Add a time
+      </button>
+    </div>
+  )
+}
+
+function StepDuration({ duration, setDuration, activeDays, pattern }) {
+  return (
+    <div className="animate-fade-in">
+      <h1 className="text-2xl font-extrabold text-ink">How long?</h1>
+      <p className="mb-5 mt-1 text-ink-muted">Run this schedule for…</p>
+
+      <div className="grid grid-cols-3 gap-3">
+        {DURATION_PRESETS.map((d) => {
+          const active = duration.type === 'preset' && duration.days === d
+          return (
+            <button
+              key={d}
+              onClick={() => setDuration({ type: 'preset', days: d, endDateKey: null })}
+              className={`rounded-3xl border-2 py-6 text-center font-bold transition ${
+                active ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-transparent bg-white text-ink shadow-card'
+              }`}
+            >
+              <span className="block text-2xl">{d}</span>
+              <span className="text-xs font-medium text-ink-muted">days</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="mt-4 space-y-3">
+        <button
+          onClick={() => setDuration({ type: 'customDays', days: duration.days || 21, endDateKey: null })}
+          className={`w-full rounded-2xl border-2 p-4 text-left transition ${
+            duration.type === 'customDays' ? 'border-brand-600 bg-brand-50' : 'border-transparent bg-white shadow-card'
+          }`}
+        >
+          <span className="font-semibold text-ink">Custom number of days</span>
+          {duration.type === 'customDays' && (
+            <div className="mt-3 flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+              <input
+                className="field w-28 text-center font-bold"
+                inputMode="numeric"
+                value={duration.days}
+                onChange={(e) =>
+                  setDuration({ type: 'customDays', days: Number(e.target.value.replace(/\D/g, '')) || 0, endDateKey: null })
+                }
+              />
+              <span className="text-ink-muted">calendar days from today</span>
+            </div>
+          )}
+        </button>
+
+        <button
+          onClick={() =>
+            setDuration({ type: 'endDate', days: duration.days, endDateKey: duration.endDateKey || toDateKey(addDays(startOfToday(), 30)) })
+          }
+          className={`w-full rounded-2xl border-2 p-4 text-left transition ${
+            duration.type === 'endDate' ? 'border-brand-600 bg-brand-50' : 'border-transparent bg-white shadow-card'
+          }`}
+        >
+          <span className="font-semibold text-ink">Pick an end date</span>
+        </button>
+        {duration.type === 'endDate' && (
+          <MonthCalendar
+            multi={false}
+            minDate={startOfToday()}
+            selected={duration.endDateKey ? [duration.endDateKey] : []}
+            onChange={(keys) => setDuration({ ...duration, type: 'endDate', endDateKey: keys[0] })}
+          />
+        )}
+      </div>
+
+      <div className="mt-6 rounded-2xl bg-brand-50 p-4 text-center">
+        <p className="text-sm text-brand-900">
+          That&apos;s{' '}
+          <span className="font-extrabold">{activeDays} active day{activeDays === 1 ? '' : 's'}</span>{' '}
+          {pattern === PATTERNS.SPECIFIC_DAYS ? 'on your chosen weekdays' : ''}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function StepDestination({ destination }) {
+  return (
+    <div className="animate-fade-in">
+      <h1 className="text-2xl font-extrabold text-ink">Where should it go?</h1>
+      <p className="mb-5 mt-1 text-ink-muted">Money returns to your own Mpesa on schedule.</p>
+
+      <div className="card flex items-center justify-between p-4">
+        <div className="flex items-center gap-3">
+          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <div>
+            <p className="font-bold text-ink">{formatPhone(destination)}</p>
+            <p className="text-xs text-ink-muted">Your registered number</p>
+          </div>
+        </div>
+        <span className="chip bg-slate-100 text-slate-500">Locked</span>
+      </div>
+
+      <div className="mt-4">
+        <Alert kind="info">
+          Phase 1 sends to your own number only. Sending to other people, paybills and tills arrives in
+          Phase 2.
+        </Alert>
+      </div>
+    </div>
+  )
+}
+
+function StepSummary({ name, pattern, breakdown, dailyTotal, resolved, destination, activeDays }) {
+  const patternLabel =
+    pattern === PATTERNS.EVERY_DAY
+      ? 'Every day'
+      : pattern === PATTERNS.SPECIFIC_DAYS
+        ? WEEKDAY_LABELS.filter((d) => activeDays.includes(d.iso)).map((d) => d.short).join(', ')
+        : 'Custom dates'
+
+  return (
+    <div className="animate-fade-in">
+      <h1 className="text-2xl font-extrabold text-ink">Your commitment</h1>
+      <p className="mb-5 mt-1 text-ink-muted">No surprises. This is exactly what happens.</p>
+
+      <div className="card p-5">
+        <p className="text-lg font-bold text-ink">{name}</p>
+        <div className="mt-3 space-y-1.5 text-sm text-ink-soft">
+          <Row k="Pattern" v={patternLabel} />
+          <Row k="Sends per day" v={`${breakdown.sendsPerDay} · ${formatKes(dailyTotal)}/day`} />
+          <Row k="Active days" v={`${breakdown.activeDays}`} />
+          <Row k="Total sends" v={`${breakdown.totalSends}`} />
+          {resolved.startDate && (
+            <Row k="Runs" v={`${formatDateShort(resolved.startDate)} → ${formatDateShort(resolved.endDate)}`} />
+          )}
+          <Row k="Destination" v={formatPhone(destination)} />
+        </div>
+      </div>
+
+      <div className="card mt-4 p-5">
+        <Row k="Base amount" v={formatKes(breakdown.baseAmount)} />
+        <Row k={`Service fees (Ksh 5 × ${breakdown.totalSends})`} v={formatKes(breakdown.serviceFees)} />
+        <Row k="Mpesa fees" v={formatKes(breakdown.mpesaFees)} />
+        <div className="my-3 border-t border-dashed border-slate-200" />
+        <div className="flex items-center justify-between">
+          <span className="font-bold text-ink">Total to lock</span>
+          <span className="text-xl font-extrabold text-brand-700">{formatKes(breakdown.total)}</span>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <Alert kind="warn">
+          This money is locked. It is only released on the schedule above. No withdrawals — if you need
+          to cancel, contact support for manual review.
+        </Alert>
+      </div>
+    </div>
+  )
+}
+
+function Row({ k, v }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-ink-muted">{k}</span>
+      <span className="text-right font-semibold text-ink">{v}</span>
+    </div>
+  )
+}
+
+/* ----------------- STK + Success ----------------- */
+
+function StkWaiting({ total, number }) {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#f4f6fb] px-8 text-center">
+      <div className="relative mb-8">
+        <span className="absolute inset-0 animate-pulse-ring rounded-full bg-brand-400" />
+        <span className="relative grid h-20 w-20 place-items-center rounded-full bg-brand-600 text-white shadow-float">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
+            <rect x="6" y="3" width="12" height="18" rx="3" stroke="currentColor" strokeWidth="2" />
+            <path d="M11 18h2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </span>
+      </div>
+      <h1 className="text-xl font-extrabold text-ink">Check your phone</h1>
+      <p className="mt-2 max-w-xs text-ink-muted">
+        We sent an Mpesa STK push for <span className="font-bold text-ink">{formatKes(total)}</span> to{' '}
+        {formatPhone(number)}. Enter your PIN to lock it in.
+      </p>
+      <div className="mt-6 flex items-center gap-2 text-sm text-brand-600">
+        <Spinner /> Waiting for confirmation…
+      </div>
+    </div>
+  )
+}
+
+function SuccessScreen({ result, navigate }) {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#f4f6fb] px-8 text-center">
+      <div className="mb-6 grid h-20 w-20 place-items-center rounded-full bg-emerald-500 text-white shadow-float">
+        <svg width="38" height="38" viewBox="0 0 24 24" fill="none">
+          <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+      <h1 className="text-2xl font-extrabold text-ink">Your schedule is live!</h1>
+      <p className="mt-2 max-w-xs text-ink-muted">
+        {formatKes(result?.total)} is now locked. First send at{' '}
+        <span className="font-bold text-ink">
+          {result?.firstSend ? formatTime12(new Date(result.firstSend).toTimeString().slice(0, 5)) : ''}
+        </span>{' '}
+        on {result?.firstSend ? formatDateShort(result.firstSend) : ''}.
+      </p>
+      {result?.mpesaReference && (
+        <p className="mt-2 text-xs text-ink-muted">Deposit ref: {result.mpesaReference}</p>
+      )}
+      <div className="mt-8 w-full max-w-xs space-y-3">
+        <button className="btn-primary w-full" onClick={() => navigate(`/app/schedule/${result.scheduleId}`)}>
+          View schedule
+        </button>
+        <button className="btn-ghost w-full" onClick={() => navigate('/app')}>
+          Back to home
+        </button>
+      </div>
+    </div>
+  )
+}
