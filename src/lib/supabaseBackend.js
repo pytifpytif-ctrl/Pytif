@@ -28,21 +28,15 @@ async function register({ name, mpesaNumber, password }) {
   const phone = normalizePhone(mpesaNumber)
   if (!/^0\d{9}$/.test(phone)) throw new Error('Enter a valid Safaricom number, e.g. 0712345678')
 
-  const { data, error } = await supabase.auth.signUp({
-    email: phoneToEmail(phone),
-    password,
-    options: { data: { name, mpesa_number: phone } },
+  // Create the (auto-confirmed) account server-side via the admin API, then
+  // sign in to obtain a session.
+  const { data, error } = await supabase.functions.invoke('register', {
+    body: { name, mpesaNumber: phone, password },
   })
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(await readFnError(error, 'Could not create account.'))
+  if (data?.error) throw new Error(data.error)
 
-  // The `users` profile row is created by a DB trigger (see migrations),
-  // but we upsert defensively in case triggers are not installed.
-  if (data.user) {
-    await supabase
-      .from('users')
-      .upsert({ id: data.user.id, name, mpesa_number: phone, is_verified: true })
-  }
-  return { id: data.user?.id, name, mpesa_number: phone, is_verified: true }
+  return login({ mpesaNumber: phone, password })
 }
 
 async function login({ mpesaNumber, password }) {
@@ -70,11 +64,26 @@ async function currentUser() {
   return profile || { id: data.user.id, name: data.user.user_metadata?.name }
 }
 
-async function resetPassword({ mpesaNumber }) {
+async function resetPassword({ mpesaNumber, newPassword }) {
   const phone = normalizePhone(mpesaNumber)
-  const { error } = await supabase.auth.resetPasswordForEmail(phoneToEmail(phone))
-  if (error) throw new Error(error.message)
+  const { data, error } = await supabase.functions.invoke('reset-password', {
+    body: { mpesaNumber: phone, newPassword },
+  })
+  if (error) throw new Error(await readFnError(error, 'Could not reset password.'))
+  if (data?.error) throw new Error(data.error)
   return true
+}
+
+// Edge function errors arrive as a FunctionsHttpError whose response body holds
+// the JSON { error } we returned. Surface that message to the user.
+async function readFnError(error, fallback) {
+  try {
+    const body = await error?.context?.json?.()
+    if (body?.error) return body.error
+  } catch {
+    /* ignore */
+  }
+  return error?.message || fallback
 }
 
 async function createSchedule(payload) {
