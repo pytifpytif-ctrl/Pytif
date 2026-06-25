@@ -12,7 +12,8 @@ export function isValidPhone(num: string): boolean {
 }
 
 export function generateCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000))
+  const n = crypto.getRandomValues(new Uint32Array(1))[0] % 900000
+  return String(100000 + n)
 }
 
 export async function sha256Hex(input: string): Promise<string> {

@@ -42,7 +42,7 @@ export default function Register() {
         setBusy(false)
         return
       }
-      navigate('/app') // confirmation disabled: straight to onboarding
+      navigate('/app')
     } catch (err) {
       setError(err.message)
       setBusy(false)
@@ -66,42 +66,30 @@ export default function Register() {
     return (
       <AuthShell
         title="Confirm your email"
-        subtitle="One more step before you can log in."
+        subtitle="Check your inbox for the link."
         footer={
-          <span>
-            Wrong address?{' '}
-            <button
-              type="button"
-              className="font-semibold text-brand-600"
-              onClick={() => {
-                setSentTo('')
-                setResent(false)
-              }}
-            >
-              Start over
-            </button>
-          </span>
+          <button
+            type="button"
+            className="font-semibold text-brand-600"
+            onClick={() => {
+              setSentTo('')
+              setResent(false)
+            }}
+          >
+            ← Start over
+          </button>
         }
       >
         <Alert kind="success">
-          We sent a confirmation link to <strong>{sentTo}</strong>. Open it to verify your email,
-          then you'll be taken to add your Mpesa number.
+          Link sent to <strong>{sentTo}</strong>. Open it to verify, then add your M-Pesa number.
         </Alert>
         {error && (
-          <div className="mt-4">
+          <div className="mt-2">
             <Alert kind="error">{error}</Alert>
           </div>
         )}
-        <p className="mt-5 text-sm text-ink-muted">
-          Didn't get it? Check spam, or resend below.
-        </p>
-        <button
-          type="button"
-          className="btn-primary w-full mt-3"
-          onClick={resend}
-          disabled={busy || resent}
-        >
-          {busy ? <Spinner /> : resent ? 'Email sent' : 'Resend confirmation email'}
+        <button type="button" className="btn-primary mt-3 w-full" onClick={resend} disabled={busy || resent}>
+          {busy ? <Spinner /> : resent ? 'Email sent' : 'Resend email'}
         </button>
       </AuthShell>
     )
@@ -109,11 +97,11 @@ export default function Register() {
 
   return (
     <AuthShell
-      title="Create your account"
-      subtitle="Just your name and email to start. You'll add your Mpesa number next."
+      title="Create account"
+      subtitle="Name and email — M-Pesa comes next."
       footer={
         <span>
-          Already have an account?{' '}
+          Have an account?{' '}
           <Link to="/login" className="font-semibold text-brand-600">
             Log in
           </Link>
@@ -121,19 +109,19 @@ export default function Register() {
       }
     >
       {!usingMockBackend && (
-        <div className="mb-1">
+        <div>
           <GoogleButton onClick={google} disabled={busy} label="Sign up with Google" />
-          <OrDivider />
+          <OrDivider dense />
         </div>
       )}
 
       <form onSubmit={submit}>
         {error && (
-          <div className="mb-4">
+          <div className="mb-2">
             <Alert kind="error">{error}</Alert>
           </div>
         )}
-        <Field label="First name" icon="user">
+        <Field label="First name" icon="user" dense>
           <input
             className="field"
             placeholder="Jane"
@@ -142,7 +130,7 @@ export default function Register() {
             autoComplete="given-name"
           />
         </Field>
-        <Field label="Email" icon="mail">
+        <Field label="Email" icon="mail" dense>
           <input
             className="field"
             type="email"
@@ -152,17 +140,17 @@ export default function Register() {
             autoComplete="email"
           />
         </Field>
-        <Field label="Password" icon="lock">
+        <Field label="Password" icon="lock" dense>
           <input
             className="field"
             type="password"
-            placeholder="At least 6 characters"
+            placeholder="Min. 6 characters"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             autoComplete="new-password"
           />
         </Field>
-        <Field label="Confirm password" icon="lock">
+        <Field label="Confirm" icon="lock" dense>
           <input
             className="field"
             type="password"
@@ -175,14 +163,14 @@ export default function Register() {
         <button type="submit" className="btn-primary w-full" disabled={busy}>
           {busy ? <Spinner /> : 'Create account'}
         </button>
-        <p className="mt-3 text-center text-xs text-ink-muted">
-          By creating an account you agree to our{' '}
+        <p className="mt-2 text-center text-[10px] leading-snug text-ink-muted">
+          By signing up you agree to our{' '}
           <Link to="/terms" className="font-semibold text-brand-600">
             Terms
           </Link>{' '}
-          and{' '}
+          &{' '}
           <Link to="/privacy" className="font-semibold text-brand-600">
-            Privacy Policy
+            Privacy
           </Link>
           .
         </p>

@@ -30,7 +30,7 @@ export default function ForgotPassword() {
   return (
     <AuthShell
       title="Reset password"
-      subtitle="We'll email you a secure link to set a new password."
+      subtitle="We'll email you a secure reset link."
       footer={
         <Link to="/login" className="font-semibold text-brand-600">
           ← Back to login
@@ -39,16 +39,16 @@ export default function ForgotPassword() {
     >
       {sent ? (
         <Alert kind="success">
-          If an account exists for {email}, a reset link is on its way. Check your inbox (and spam).
+          If an account exists for {email}, check your inbox (and spam) for the reset link.
         </Alert>
       ) : (
         <form onSubmit={submit}>
           {error && (
-            <div className="mb-4">
+            <div className="mb-2">
               <Alert kind="error">{error}</Alert>
             </div>
           )}
-          <Field label="Email" icon="mail">
+          <Field label="Email" icon="mail" dense>
             <input
               className="field"
               type="email"

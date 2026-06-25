@@ -18,6 +18,13 @@ const mpesaFee = (a: number) => {
 }
 const sendFee = (a: number) => (a > 0 ? mpesaFee(a) + 5 : 0)
 
+function normalizeDest(num: string) {
+  let d = String(num || '').replace(/\D/g, '')
+  if (d.startsWith('254')) d = '0' + d.slice(3)
+  if (d.length === 9 && d.startsWith('7')) d = '0' + d
+  return d
+}
+
 function isoDow(d: Date) {
   const js = d.getUTCDay()
   return js === 0 ? 7 : js
@@ -81,10 +88,16 @@ Deno.serve(async (req) => {
 
     const { data: profile } = await supabase
       .from('users')
-      .select('mpesa_number')
+      .select('mpesa_number,is_verified')
       .eq('id', userId)
       .single()
-    const destination = p.destination || profile?.mpesa_number
+    if (!profile?.is_verified) {
+      return json({ error: 'Verify your M-Pesa number before creating a schedule.' }, 403)
+    }
+    const destination = profile.mpesa_number
+    if (p.destination && normalizeDest(p.destination) !== normalizeDest(destination)) {
+      return json({ error: 'Payouts can only go to your verified M-Pesa number.' }, 403)
+    }
     const startKey = p.startDate ? new Date(p.startDate).toISOString().slice(0, 10) : null
     const endKey = p.endDate ? new Date(p.endDate).toISOString().slice(0, 10) : null
 
@@ -153,9 +166,9 @@ Deno.serve(async (req) => {
       depositId: deposit.id,
       activeDays,
       breakdown: { total, activeDays, totalSends },
-      stk,
+      stkPending: Boolean(stk?.CheckoutRequestID),
     })
   } catch (e) {
-    return json({ error: String(e) }, 500)
+    return json({ error: 'Internal error' }, 500)
   }
 })

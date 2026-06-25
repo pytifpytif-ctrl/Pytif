@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import AuthShell from './AuthShell.jsx'
 import { Field, Alert, Spinner } from '../components/ui.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 
-// Reached via the password-reset email link. Supabase puts the user into a
-// temporary recovery session, so we can set a new password directly.
 export default function ResetPassword() {
   const { updatePassword } = useAuth()
   const navigate = useNavigate()
@@ -33,27 +31,35 @@ export default function ResetPassword() {
   }
 
   return (
-    <AuthShell title="Set a new password" subtitle="Choose a new password for your account.">
+    <AuthShell
+      title="New password"
+      subtitle="Choose a password for your account."
+      footer={
+        <Link to="/login" className="font-semibold text-brand-600">
+          ← Back to login
+        </Link>
+      }
+    >
       {done ? (
         <Alert kind="success">Password updated. Taking you in…</Alert>
       ) : (
         <form onSubmit={submit}>
           {error && (
-            <div className="mb-4">
+            <div className="mb-2">
               <Alert kind="error">{error}</Alert>
             </div>
           )}
-          <Field label="New password" icon="lock">
+          <Field label="New password" icon="lock" dense>
             <input
               className="field"
               type="password"
-              placeholder="At least 6 characters"
+              placeholder="Min. 6 characters"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
             />
           </Field>
-          <Field label="Confirm new password" icon="lock">
+          <Field label="Confirm" icon="lock" dense>
             <input
               className="field"
               type="password"

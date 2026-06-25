@@ -164,13 +164,21 @@ async function updateProfile({ name, mpesaNumber }) {
   if (clash) throw new Error('That Mpesa number is already linked to another account.')
 
   const row = {
-    id: auth.user.id,
     name: name?.trim() || auth.user.user_metadata?.name || 'Pytif user',
     mpesa_number: phone,
-    is_verified: true,
   }
-  const { error } = await supabase.from('users').upsert(row)
-  if (error) throw new Error(error.message)
+  const { data: existing } = await supabase.from('users').select('id,is_verified').eq('id', auth.user.id).maybeSingle()
+  if (existing) {
+    const { error } = await supabase.from('users').update(row).eq('id', auth.user.id)
+    if (error) throw new Error(error.message)
+  } else {
+    const { error } = await supabase.from('users').insert({
+      id: auth.user.id,
+      ...row,
+      is_verified: false,
+    })
+    if (error) throw new Error(error.message)
+  }
   await supabase.auth.updateUser({ data: { mpesa_number: phone, name: row.name } })
   return currentUser()
 }

@@ -142,8 +142,6 @@ input[type='number'] {
       linear-gradient(135deg, #fb923c 0%, #f97316 48%, #ea580c 100%);
   }
 
-  /* Decorative page canvas: warm base wash + orange aurora corners + dot grid.
-     Layered on bg-app; visible in gaps between cards and at screen edges. */
   .app-bg-decor {
     background-color: rgb(var(--app));
     background-image:
@@ -164,6 +162,30 @@ input[type='number'] {
       radial-gradient(30rem 30rem at 50% 0%, rgba(249, 115, 22, 0.08), transparent 72%),
       linear-gradient(165deg, rgba(249, 115, 22, 0.06) 0%, transparent 50%, rgba(124, 45, 18, 0.12) 100%),
       radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1.4px);
+  }
+
+  /* Auth — compact forms, no page scroll on mobile */
+  .auth-shell {
+    background-color: rgb(var(--app));
+  }
+  .auth-form .field {
+    @apply py-2;
+  }
+  .auth-form .btn,
+  .auth-form .btn-primary,
+  .auth-form .btn-ghost {
+    @apply py-2.5;
+  }
+
+  /* Landing one-pager — soft fintech welcome canvas (Orient-inspired) */
+  .landing-shell {
+    background-color: #ece8f4;
+    background-image:
+      radial-gradient(ellipse 120% 80% at 50% -20%, rgba(255, 255, 255, 0.9), transparent 55%),
+      radial-gradient(circle at 85% 15%, rgba(249, 115, 22, 0.12), transparent 40%),
+      radial-gradient(circle at 10% 80%, rgba(139, 92, 246, 0.08), transparent 45%),
+      radial-gradient(rgba(0, 0, 0, 0.04) 0.6px, transparent 0.6px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 18px 18px;
   }
 
   /* Staggered reveal: parent gets .stagger, children animate in sequence. */

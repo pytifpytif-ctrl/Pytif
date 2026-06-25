@@ -43,10 +43,10 @@ export function StatusBadge({ status }) {
   return <span className={`chip ${cls}`}>{status}</span>
 }
 
-export function Field({ label, hint, error, icon, children }) {
+export function Field({ label, hint, error, icon, children, dense = false }) {
   return (
-    <div className="mb-4">
-      {label && <label className="label">{label}</label>}
+    <div className={dense ? 'mb-2.5' : 'mb-4'}>
+      {label && <label className={`label ${dense ? '!mb-1 !text-[11px]' : ''}`}>{label}</label>}
       {icon ? (
         <div className="field-wrap">
           <span className="field-ic">
@@ -86,9 +86,9 @@ export function EmptyState({ icon = 'calendar', title, subtitle, action }) {
   )
 }
 
-export function OrDivider({ label = 'or' }) {
+export function OrDivider({ label = 'or', dense = false }) {
   return (
-    <div className="my-4 flex items-center gap-3 text-xs font-medium text-ink-muted">
+    <div className={`flex items-center gap-3 text-xs font-medium text-ink-muted ${dense ? 'my-2' : 'my-4'}`}>
       <span className="h-px flex-1 bg-line" />
       {label}
       <span className="h-px flex-1 bg-line" />

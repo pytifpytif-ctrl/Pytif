@@ -40,7 +40,7 @@ export default function Login() {
   return (
     <AuthShell
       title="Welcome back"
-      subtitle="Lock it. Forget it. Get it back on schedule."
+      subtitle="Sign in to your commitment wallet."
       footer={
         <span>
           New to Pytif?{' '}
@@ -51,19 +51,19 @@ export default function Login() {
       }
     >
       {!usingMockBackend && (
-        <div className="mb-1">
+        <div>
           <GoogleButton onClick={google} disabled={busy} />
-          <OrDivider />
+          <OrDivider dense />
         </div>
       )}
 
       <form onSubmit={submit}>
         {error && (
-          <div className="mb-4">
+          <div className="mb-2">
             <Alert kind="error">{error}</Alert>
           </div>
         )}
-        <Field label="Email" icon="mail">
+        <Field label="Email" icon="mail" dense>
           <input
             className="field"
             type="email"
@@ -73,7 +73,7 @@ export default function Login() {
             autoComplete="email"
           />
         </Field>
-        <Field label="Password" icon="lock">
+        <Field label="Password" icon="lock" dense>
           <input
             className="field"
             type="password"
@@ -84,8 +84,8 @@ export default function Login() {
           />
         </Field>
 
-        <div className="mb-5 text-right">
-          <Link to="/forgot" className="text-sm font-medium text-brand-600">
+        <div className="mb-2.5 text-right">
+          <Link to="/forgot" className="text-xs font-medium text-brand-600">
             Forgot password?
           </Link>
         </div>

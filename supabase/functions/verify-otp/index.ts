@@ -5,6 +5,7 @@
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { adminClient } from '../_shared/supabaseAdmin.ts'
 import { normalizePhone, isValidPhone, sha256Hex, userFromRequest } from '../_shared/otp.ts'
+import { auditLog } from '../_shared/auth.ts'
 
 const MAX_ATTEMPTS = 5
 
@@ -56,9 +57,10 @@ Deno.serve(async (req) => {
 
     await supabase.from('phone_verifications').update({ consumed: true }).eq('id', rec.id)
     await supabase.auth.admin.updateUserById(user.id, { user_metadata: { mpesa_number: phone } })
+    await auditLog(supabase, 'otp_verified', { phone }, user.id, req)
 
     return json({ ok: true })
   } catch (e) {
-    return json({ error: String(e) }, 500)
+    return json({ error: 'Internal error' }, 500)
   }
 })
