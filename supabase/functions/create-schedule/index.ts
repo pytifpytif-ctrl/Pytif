@@ -120,7 +120,14 @@ Deno.serve(async (req) => {
       .single()
     if (schedErr) throw schedErr
 
-    await supabase.from('send_slots').insert(
+    const { data: deposit, error: depErr } = await supabase
+      .from('deposits')
+      .insert({ user_id: userId, schedule_id: schedule.id, amount: total, status: 'PENDING' })
+      .select()
+      .single()
+    if (depErr) throw depErr
+
+    const { error: slotsErr } = await supabase.from('send_slots').insert(
       slots.map((s: any) => ({
         schedule_id: schedule.id,
         label: s.label || '',
@@ -131,12 +138,7 @@ Deno.serve(async (req) => {
         is_active: true,
       })),
     )
-
-    const { data: deposit } = await supabase
-      .from('deposits')
-      .insert({ user_id: userId, schedule_id: schedule.id, amount: total, status: 'PENDING' })
-      .select()
-      .single()
+    if (slotsErr) throw slotsErr
 
     // Fire STK push (account reference = schedule id so the callback can match).
     let stk: any = null
@@ -168,7 +170,8 @@ Deno.serve(async (req) => {
       breakdown: { total, activeDays, totalSends },
       stkPending: Boolean(stk?.CheckoutRequestID),
     })
-  } catch (e) {
-    return json({ error: 'Internal error' }, 500)
+  } catch (e: any) {
+    const msg = e?.message || e?.details || (typeof e === 'string' ? e : 'Could not create schedule.')
+    return json({ error: msg }, 500)
   }
 })

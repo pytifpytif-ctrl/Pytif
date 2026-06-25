@@ -207,14 +207,30 @@ async function updatePassword({ newPassword }) {
 
 // Edge function errors arrive as a FunctionsHttpError whose response body holds
 // the JSON { error } we returned. Surface that message to the user.
+function formatApiError(value, fallback) {
+  if (value == null || value === '') return fallback
+  if (typeof value === 'string') return value
+  if (typeof value === 'object') {
+    if (typeof value.message === 'string') return value.message
+    if (typeof value.error === 'string') return value.error
+    if (value.error) return formatApiError(value.error, fallback)
+  }
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return fallback
+  }
+}
+
 async function readFnError(error, fallback) {
   try {
     const body = await error?.context?.json?.()
-    if (body?.error) return body.error
+    if (body?.error) return formatApiError(body.error, fallback)
+    if (body?.message) return formatApiError(body.message, fallback)
   } catch {
     /* ignore */
   }
-  return error?.message || fallback
+  return formatApiError(error?.message, fallback)
 }
 
 async function createSchedule(payload) {
@@ -225,8 +241,15 @@ async function createSchedule(payload) {
     body: payload,
   })
   if (error) throw new Error(await readFnError(error, 'Could not create schedule.'))
-  if (data?.error) throw new Error(data.error)
-  if (data?.stkError) throw new Error("Couldn't start the M-Pesa prompt. Please try again in a moment.")
+  if (data?.error) throw new Error(formatApiError(data.error, 'Could not create schedule.'))
+  if (data?.stkError) {
+    const detail = formatApiError(data.stkError, '')
+    throw new Error(
+      detail && !detail.startsWith('{')
+        ? detail
+        : "Couldn't start the M-Pesa prompt. Please try again in a moment.",
+    )
+  }
   return {
     scheduleId: data.scheduleId,
     depositId: data.depositId,

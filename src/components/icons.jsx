@@ -42,6 +42,7 @@ import {
   SlidersHorizontal,
   X,
   Rocket,
+  Download,
 } from 'lucide-react'
 
 const ICONS = {
@@ -87,6 +88,7 @@ const ICONS = {
   filter: SlidersHorizontal,
   close: X,
   rocket: Rocket,
+  download: Download,
 }
 
 export function Icon({ name, size = 20, className = '', strokeWidth = 2 }) {

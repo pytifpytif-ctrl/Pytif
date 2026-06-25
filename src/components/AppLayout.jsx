@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Avatar, Logo, ThemeToggle } from './ui.jsx'
 import { Icon } from './icons.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import PwaInstallPrompt from './PwaInstallPrompt.jsx'
 
 const tabs = [
   { to: '/app', label: 'Home', end: true, icon: 'home' },
@@ -118,6 +119,7 @@ export default function AppLayout() {
       </div>
 
       {/* Floating mobile bottom nav (Home · History · Profile) */}
+      <PwaInstallPrompt />
       <nav className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-30 -translate-x-1/2 lg:hidden">
         <div className="flex items-center gap-2 rounded-[1.75rem] bg-neutral-900 p-2 shadow-float dark:bg-neutral-800">
           {tabs.map((t) => (

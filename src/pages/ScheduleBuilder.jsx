@@ -55,7 +55,12 @@ export default function ScheduleBuilder() {
   const [activeDates, setActiveDates] = useState([])
   const [slots, setSlots] = useState([newSlot({ label: 'Morning fare', amount: 100 })])
   const [daySlots, setDaySlots] = useState({})
-  const [duration, setDuration] = useState({ type: 'preset', days: 30, endDateKey: null })
+  const [duration, setDuration] = useState({
+    type: 'preset',
+    days: 30,
+    startDateKey: toDateKey(startOfToday()),
+    endDateKey: null,
+  })
   const [destination] = useState(user?.mpesa_number || '')
 
   const [stepIndex, setStepIndex] = useState(0)
@@ -89,25 +94,32 @@ export default function ScheduleBuilder() {
   // Dynamic step list based on pattern.
   const steps = useMemo(() => {
     if (pattern === PATTERNS.CUSTOM_DATES) return ['pattern', 'dates', 'slots', 'destination', 'summary']
-    if (pattern === PATTERNS.SPECIFIC_DAYS) return ['pattern', 'days', 'slots', 'duration', 'destination', 'summary']
-    return ['pattern', 'slots', 'duration', 'destination', 'summary']
+    if (pattern === PATTERNS.SPECIFIC_DAYS) return ['pattern', 'days', 'duration', 'slots', 'destination', 'summary']
+    return ['pattern', 'duration', 'slots', 'destination', 'summary']
   }, [pattern])
 
   const step = steps[Math.min(stepIndex, steps.length - 1)]
 
   // Resolve dates + breakdown.
   const resolved = useMemo(() => {
-    const start = startOfToday()
-    let end = start
     if (pattern === PATTERNS.CUSTOM_DATES) {
       const dates = computeActiveDates({ pattern, activeDates })
       return { startDate: dates[0] || null, endDate: dates[dates.length - 1] || null, dates }
     }
+
+    const startKey = duration.startDateKey || toDateKey(startOfToday())
+    const start = fromDateKey(startKey)
+    let end = start
+
     if (duration.type === 'endDate' && duration.endDateKey) {
       end = fromDateKey(duration.endDateKey)
     } else {
-      end = addDays(start, Math.max(1, duration.days) - 1)
+      const span = Math.max(1, Number(duration.days) || 1)
+      end = addDays(start, span - 1)
     }
+
+    if (end < start) end = start
+
     const dates = computeActiveDates({ pattern, activeDays, startDate: start, endDate: end })
     return { startDate: start, endDate: end, dates }
   }, [pattern, activeDays, activeDates, duration])
@@ -181,6 +193,17 @@ export default function ScheduleBuilder() {
     if (s === 'pattern' && !name.trim()) return 'Give your schedule a name.'
     if (s === 'days' && activeDays.length === 0) return 'Pick at least one day.'
     if (s === 'dates' && activeDates.length === 0) return 'Select at least one date.'
+    if (s === 'duration') {
+      if (!duration.startDateKey) return 'Pick a start date.'
+      if (resolved.dates.length === 0) {
+        return pattern === PATTERNS.SPECIFIC_DAYS
+          ? 'No sends fall on your chosen weekdays in this range. Widen the dates or change your days.'
+          : 'This date range has no active days.'
+      }
+      if (duration.type === 'endDate' && duration.endDateKey && fromDateKey(duration.endDateKey) < fromDateKey(duration.startDateKey)) {
+        return 'End date must be on or after the start date.'
+      }
+    }
     if (s === 'slots') {
       if (isPerDay) {
         for (const { key, label } of dayKeys) {
@@ -238,7 +261,8 @@ export default function ScheduleBuilder() {
       })
       setPhase('success')
     } catch (err) {
-      setError(err.message)
+      const msg = err?.message || (typeof err === 'string' ? err : 'Something went wrong. Please try again.')
+      setError(msg)
       setPhase('build')
       setStepIndex(steps.indexOf('summary'))
     }
@@ -307,7 +331,14 @@ export default function ScheduleBuilder() {
           />
         )}
         {step === 'duration' && (
-          <StepDuration duration={duration} setDuration={setDuration} activeDays={resolved.dates.length} pattern={pattern} />
+          <StepDuration
+            duration={duration}
+            setDuration={setDuration}
+            resolved={resolved}
+            breakdown={breakdown}
+            pattern={pattern}
+            activeWeekdays={activeDays}
+          />
         )}
         {step === 'destination' && <StepDestination destination={destination} />}
         {step === 'summary' && (
@@ -326,12 +357,10 @@ export default function ScheduleBuilder() {
 
       {/* Sticky footer CTA */}
       <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-line bg-surface/95 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur lg:max-w-2xl">
-        {step === 'slots' && (
+        {(step === 'duration' || step === 'slots') && resolved.dates.length > 0 && (
           <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="text-ink-muted">{isPerDay ? 'Est. total to lock' : 'Daily total'}</span>
-            <span className="text-lg font-extrabold text-ink">
-              {formatKes(isPerDay ? breakdown.total : dailyTotal)}
-            </span>
+            <span className="text-ink-muted">Est. total to lock</span>
+            <span className="text-lg font-extrabold text-ink">{formatKes(breakdown.total)}</span>
           </div>
         )}
         {step === 'summary' ? (
@@ -667,11 +696,48 @@ function StepDaySlots({ dayKeys, daySlots, setDaySlots, openTime }) {
   )
 }
 
-function StepDuration({ duration, setDuration, activeDays, pattern }) {
+function StepDuration({ duration, setDuration, resolved, breakdown, pattern, activeWeekdays }) {
+  const startKey = duration.startDateKey || toDateKey(startOfToday())
+  const startDate = fromDateKey(startKey)
+
+  const setStart = (keys) => {
+    const nextStart = keys[0] || startKey
+    setDuration((prev) => ({ ...prev, startDateKey: nextStart }))
+  }
+
+  const pickPreset = (days) => {
+    setDuration({ type: 'preset', days, startDateKey: startKey, endDateKey: null })
+  }
+
+  const spanDays =
+    resolved.startDate && resolved.endDate
+      ? Math.round((resolved.endDate - resolved.startDate) / 86400000) + 1
+      : 0
+
+  const weekdayLabel =
+    pattern === PATTERNS.SPECIFIC_DAYS
+      ? WEEKDAY_LABELS.filter((d) => activeWeekdays.includes(d.iso))
+          .map((d) => d.short)
+          .join(', ')
+      : ''
+
   return (
     <div className="animate-fade-in">
-      <h1 className="text-2xl font-extrabold text-ink">How long?</h1>
-      <p className="mb-5 mt-1 text-ink-muted">Run this schedule for…</p>
+      <h1 className="text-2xl font-extrabold text-ink">Set your date range</h1>
+      <p className="mb-5 mt-1 text-ink-muted">
+        Choose when the schedule starts and ends. We&apos;ll calculate exactly how much to lock.
+      </p>
+
+      <p className="mb-2 text-sm font-semibold text-ink">Start date</p>
+      <MonthCalendar
+        multi={false}
+        minDate={startOfToday()}
+        selected={[startKey]}
+        onChange={setStart}
+      />
+
+      <p className="mb-2 mt-5 text-sm font-semibold text-ink">End date</p>
+      <p className="mb-3 text-xs text-ink-muted">Pick a preset length from your start date, enter custom days, or choose an end date.</p>
 
       <div className="grid grid-cols-3 gap-3">
         {DURATION_PRESETS.map((d) => {
@@ -679,8 +745,9 @@ function StepDuration({ duration, setDuration, activeDays, pattern }) {
           return (
             <button
               key={d}
-              onClick={() => setDuration({ type: 'preset', days: d, endDateKey: null })}
-              className={`press rounded-3xl border-2 py-6 text-center font-bold transition ${
+              type="button"
+              onClick={() => pickPreset(d)}
+              className={`press rounded-3xl border-2 py-5 text-center font-bold transition ${
                 active ? 'border-brand-600 bg-brand-500/10 text-brand-600 dark:text-brand-300' : 'border-transparent bg-surface text-ink shadow-card'
               }`}
             >
@@ -693,7 +760,8 @@ function StepDuration({ duration, setDuration, activeDays, pattern }) {
 
       <div className="mt-4 space-y-3">
         <button
-          onClick={() => setDuration({ type: 'customDays', days: duration.days || 21, endDateKey: null })}
+          type="button"
+          onClick={() => setDuration({ type: 'customDays', days: duration.days || 21, startDateKey: startKey, endDateKey: null })}
           className={`w-full rounded-2xl border-2 p-4 text-left transition ${
             duration.type === 'customDays' ? 'border-brand-600 bg-brand-500/10' : 'border-transparent bg-surface shadow-card'
           }`}
@@ -706,17 +774,28 @@ function StepDuration({ duration, setDuration, activeDays, pattern }) {
                 inputMode="numeric"
                 value={duration.days}
                 onChange={(e) =>
-                  setDuration({ type: 'customDays', days: Number(e.target.value.replace(/\D/g, '')) || 0, endDateKey: null })
+                  setDuration({
+                    type: 'customDays',
+                    days: Math.max(1, Number(e.target.value.replace(/\D/g, '')) || 1),
+                    startDateKey: startKey,
+                    endDateKey: null,
+                  })
                 }
               />
-              <span className="text-ink-muted">calendar days from today</span>
+              <span className="text-ink-muted">days from start</span>
             </div>
           )}
         </button>
 
         <button
+          type="button"
           onClick={() =>
-            setDuration({ type: 'endDate', days: duration.days, endDateKey: duration.endDateKey || toDateKey(addDays(startOfToday(), 30)) })
+            setDuration({
+              type: 'endDate',
+              days: duration.days,
+              startDateKey: startKey,
+              endDateKey: duration.endDateKey || toDateKey(addDays(startDate, 29)),
+            })
           }
           className={`w-full rounded-2xl border-2 p-4 text-left transition ${
             duration.type === 'endDate' ? 'border-brand-600 bg-brand-500/10' : 'border-transparent bg-surface shadow-card'
@@ -727,18 +806,31 @@ function StepDuration({ duration, setDuration, activeDays, pattern }) {
         {duration.type === 'endDate' && (
           <MonthCalendar
             multi={false}
-            minDate={startOfToday()}
+            minDate={startDate}
             selected={duration.endDateKey ? [duration.endDateKey] : []}
-            onChange={(keys) => setDuration({ ...duration, type: 'endDate', endDateKey: keys[0] })}
+            onChange={(keys) =>
+              setDuration({ ...duration, type: 'endDate', startDateKey: startKey, endDateKey: keys[0] })
+            }
           />
         )}
       </div>
 
-      <div className="mt-6 rounded-2xl bg-brand-500/10 p-4 text-center">
-        <p className="text-sm text-brand-700 dark:text-brand-200">
-          That&apos;s{' '}
-          <span className="font-extrabold">{activeDays} active day{activeDays === 1 ? '' : 's'}</span>{' '}
-          {pattern === PATTERNS.SPECIFIC_DAYS ? 'on your chosen weekdays' : ''}
+      <div className="mt-6 space-y-2 rounded-2xl bg-brand-500/10 p-4">
+        <p className="text-center text-sm text-brand-700 dark:text-brand-200">
+          <span className="font-extrabold">{formatDateShort(resolved.startDate)}</span>
+          {' → '}
+          <span className="font-extrabold">{formatDateShort(resolved.endDate)}</span>
+        </p>
+        <p className="text-center text-sm text-brand-700 dark:text-brand-200">
+          {spanDays} day span ·{' '}
+          <span className="font-extrabold">
+            {breakdown.activeDays} active day{breakdown.activeDays === 1 ? '' : 's'}
+          </span>
+          {pattern === PATTERNS.SPECIFIC_DAYS && weekdayLabel ? ` (${weekdayLabel})` : ''}
+        </p>
+        <p className="text-center text-sm text-brand-700 dark:text-brand-200">
+          {breakdown.totalSends} send{breakdown.totalSends === 1 ? '' : 's'} ·{' '}
+          <span className="font-extrabold">{formatKes(breakdown.total)}</span> to lock
         </p>
       </div>
     </div>
