@@ -23,7 +23,7 @@ const tabs = [
 
 export default function AppLayout() {
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-[#f4f6fb]">
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-[#f4f6fa]">
       <main className="flex-1 px-5 pb-28 pt-2">
         <Outlet />
       </main>

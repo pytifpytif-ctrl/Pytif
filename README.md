@@ -1,14 +1,14 @@
-# Wastel — Commitment Wallet (MVP, Phase 1)
+# Pytif — Commitment Wallet (MVP, Phase 1)
 
-> **Wa**(llet) + **St**(anding order) + (Lock)**el**
+> Lock it. Forget it. Get it back on schedule.
 
-Wastel is a web-based **commitment wallet**. You give Wastel your money, it holds
+Pytif is a web-based **commitment wallet**. You give Pytif your money, it holds
 it, and returns it to you on a schedule you define in advance. Once committed,
 the money **cannot be freely withdrawn** — that single constraint is the entire
 product.
 
 Unlike Mpesa Ratiba (date-only, cancellable) or savings apps (lock but don't
-disburse), Wastel combines **time-of-day scheduled micro-disbursements** with a
+disburse), Pytif combines **time-of-day scheduled micro-disbursements** with a
 **locked balance**. Set a 6:00 AM transport send, a 12:00 PM lunch send, and a
 5:30 PM fare-home send — all from one locked deposit.
 
@@ -30,7 +30,7 @@ This repo is **Phase 1**: time-of-day scheduled sends **to self only**.
 - **Transaction History** with status / schedule / date-range filters.
 - **Auth**: register (with OTP step), login, forgot-password — keyed on the
   Mpesa number.
-- **Fee engine** matching the published Mpesa B2C bands + flat Ksh 5 Wastel fee.
+- **Fee engine** matching the published Mpesa B2C bands + flat Ksh 5 Pytif fee.
 - **Full Supabase backend**: SQL schema + RLS, activation & scheduler functions,
   `pg_cron` every-minute job, and **Daraja edge functions** (STK push, B2C, and
   all three callbacks).
@@ -161,7 +161,7 @@ VITE_SUPABASE_ANON_KEY=<anon-key>
 All fees are calculated **upfront** and bundled into the deposit. Each send goes
 out as the **clean amount** — no deductions at send time.
 
-| Amount per send (KES) | Mpesa fee | Wastel fee | Total |
+| Amount per send (KES) | Mpesa fee | Pytif fee | Total |
 | --- | --- | --- | --- |
 | 1 – 100 | 0 | 5 | 5 |
 | 101 – 500 | 11 | 5 | 16 |
@@ -206,4 +206,4 @@ the build brief for the Phase 2 / Phase 3 roadmap.
 
 ---
 
-_Wastel — MVP Build Brief v1.1 · Confidential · June 2026_
+_Pytif — MVP Build Brief v1.1 · Confidential · June 2026_

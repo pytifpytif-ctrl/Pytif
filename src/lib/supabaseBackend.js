@@ -13,10 +13,6 @@
 import { supabase } from './supabaseClient.js'
 import { depositBreakdown, feeFor } from './fees.js'
 
-function phoneToEmail(phone) {
-  return `${normalizePhone(phone)}@wastel.user`
-}
-
 function normalizePhone(num) {
   let digits = String(num || '').replace(/\D/g, '')
   if (digits.startsWith('254')) digits = '0' + digits.slice(3)
@@ -24,53 +20,153 @@ function normalizePhone(num) {
   return digits
 }
 
-async function register({ name, mpesaNumber, password }) {
-  const phone = normalizePhone(mpesaNumber)
-  if (!/^0\d{9}$/.test(phone)) throw new Error('Enter a valid Safaricom number, e.g. 0712345678')
-
-  // Create the (auto-confirmed) account server-side via the admin API, then
-  // sign in to obtain a session.
-  const { data, error } = await supabase.functions.invoke('register', {
-    body: { name, mpesaNumber: phone, password },
+async function register({ name, email, password }) {
+  // Standard sign-up: Supabase emails a confirmation link. The account has no
+  // session until the email is confirmed. The Mpesa number is collected (and
+  // OTP-confirmed) afterwards during onboarding.
+  const cleanEmail = String(email || '').trim().toLowerCase()
+  const { data, error } = await supabase.auth.signUp({
+    email: cleanEmail,
+    password,
+    options: { data: { name: name?.trim() }, emailRedirectTo: `${window.location.origin}/app` },
   })
-  if (error) throw new Error(await readFnError(error, 'Could not create account.'))
-  if (data?.error) throw new Error(data.error)
+  if (error) throw new Error(error.message)
 
-  return login({ mpesaNumber: phone, password })
+  // If email confirmation is disabled on the project, a session is returned and
+  // the user is logged straight in. Otherwise they must confirm via email.
+  if (data.session) return { user: await currentUser(), needsEmailConfirm: false }
+  return { needsEmailConfirm: true, email: cleanEmail }
 }
 
-async function login({ mpesaNumber, password }) {
-  const phone = normalizePhone(mpesaNumber)
+async function resendConfirmation({ email }) {
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email: String(email || '').trim().toLowerCase(),
+    options: { emailRedirectTo: `${window.location.origin}/app` },
+  })
+  if (error) throw new Error(error.message)
+  return true
+}
+
+async function login({ email, password }) {
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: phoneToEmail(phone),
+    email: String(email || '').trim().toLowerCase(),
     password,
   })
-  if (error) throw new Error('Wrong number or password.')
-  return currentUser() ?? { id: data.user.id, mpesa_number: phone }
+  if (error) throw new Error('Wrong email or password.')
+  return (await currentUser()) ?? { id: data.user.id, email: data.user.email }
+}
+
+/** Send an OTP to confirm an Mpesa number during onboarding. */
+async function sendOtp({ mpesaNumber }) {
+  const { data, error } = await supabase.functions.invoke('send-otp', {
+    body: { mpesaNumber },
+  })
+  if (error) throw new Error(await readFnError(error, 'Could not send code.'))
+  if (data?.error) throw new Error(data.error)
+  return data // { ok, sent, devCode? }
+}
+
+/** Verify the OTP; on success the number is saved to the profile. */
+async function verifyOtp({ mpesaNumber, code }) {
+  const { data, error } = await supabase.functions.invoke('verify-otp', {
+    body: { mpesaNumber, code },
+  })
+  if (error) throw new Error(await readFnError(error, 'Could not verify code.'))
+  if (data?.error) throw new Error(data.error)
+  return currentUser()
 }
 
 async function logout() {
   await supabase.auth.signOut()
 }
 
+function isRealPhone(num) {
+  return /^0\d{9}$/.test(String(num || ''))
+}
+
 async function currentUser() {
   const { data } = await supabase.auth.getUser()
   if (!data.user) return null
+  const meta = data.user.user_metadata || {}
   const { data: profile } = await supabase
     .from('users')
     .select('id,name,mpesa_number,is_verified')
     .eq('id', data.user.id)
-    .single()
-  return profile || { id: data.user.id, name: data.user.user_metadata?.name }
+    .maybeSingle()
+
+  const base = profile || {
+    id: data.user.id,
+    name: meta.name || meta.full_name || 'Pytif user',
+    mpesa_number: null,
+  }
+  // Google sign-ups have no Mpesa number yet (the trigger falls back to their
+  // email). Flag them so the app can collect it before any money can move.
+  return {
+    ...base,
+    name: base.name || meta.name || meta.full_name || 'Pytif user',
+    email: data.user.email,
+    provider: data.user.app_metadata?.provider || 'email',
+    needs_onboarding: !isRealPhone(base.mpesa_number),
+  }
 }
 
-async function resetPassword({ mpesaNumber, newPassword }) {
-  const phone = normalizePhone(mpesaNumber)
-  const { data, error } = await supabase.functions.invoke('reset-password', {
-    body: { mpesaNumber: phone, newPassword },
+async function signInWithGoogle() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${window.location.origin}/app` },
   })
-  if (error) throw new Error(await readFnError(error, 'Could not reset password.'))
-  if (data?.error) throw new Error(data.error)
+  if (error) throw new Error(error.message)
+  // Browser redirects to Google; resolution happens on return.
+}
+
+/** Save / complete a user's profile (used by Google onboarding). */
+async function updateProfile({ name, mpesaNumber }) {
+  const { data: auth } = await supabase.auth.getUser()
+  if (!auth.user) throw new Error('Not signed in')
+  const phone = normalizePhone(mpesaNumber)
+  if (!isRealPhone(phone)) throw new Error('Enter a valid Safaricom number, e.g. 0712345678')
+
+  // Guard against a number already linked to another account.
+  const { data: clash } = await supabase
+    .from('users')
+    .select('id')
+    .eq('mpesa_number', phone)
+    .neq('id', auth.user.id)
+    .maybeSingle()
+  if (clash) throw new Error('That Mpesa number is already linked to another account.')
+
+  const row = {
+    id: auth.user.id,
+    name: name?.trim() || auth.user.user_metadata?.name || 'Pytif user',
+    mpesa_number: phone,
+    is_verified: true,
+  }
+  const { error } = await supabase.from('users').upsert(row)
+  if (error) throw new Error(error.message)
+  await supabase.auth.updateUser({ data: { mpesa_number: phone, name: row.name } })
+  return currentUser()
+}
+
+/** Subscribe to auth changes (needed so OAuth redirects resolve the session). */
+function onAuthChange(callback) {
+  const { data } = supabase.auth.onAuthStateChange(() => callback())
+  return () => data.subscription.unsubscribe()
+}
+
+async function resetPassword({ email }) {
+  const { error } = await supabase.auth.resetPasswordForEmail(
+    String(email || '').trim().toLowerCase(),
+    { redirectTo: `${window.location.origin}/reset` },
+  )
+  if (error) throw new Error(error.message)
+  return true
+}
+
+/** Set a new password for the user currently in a recovery session. */
+async function updatePassword({ newPassword }) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) throw new Error(error.message)
   return true
 }
 
@@ -218,10 +314,17 @@ async function seedDemo() {
 export const supabaseBackend = {
   isMock: false,
   register,
+  resendConfirmation,
   login,
   logout,
   currentUser,
+  signInWithGoogle,
+  updateProfile,
+  onAuthChange,
+  sendOtp,
+  verifyOtp,
   resetPassword,
+  updatePassword,
   createSchedule,
   confirmDeposit,
   listSchedules,

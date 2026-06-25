@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
         amount: total,
         phone: destination,
         accountReference: schedule.id,
-        description: 'Wastel deposit',
+        description: 'Pytif deposit',
       })
       if (stk?.CheckoutRequestID) {
         await supabase

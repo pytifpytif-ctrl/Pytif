@@ -1,16 +1,27 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AuthShell from './AuthShell.jsx'
-import { Field, Alert, Spinner } from '../components/ui.jsx'
+import { Field, Alert, Spinner, GoogleButton, OrDivider } from '../components/ui.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { usingMockBackend } from '../lib/api.js'
 
 export default function Login() {
-  const { login, seedDemo } = useAuth()
+  const { login, seedDemo, signInWithGoogle } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ mpesaNumber: '', password: '' })
+  const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  const google = async () => {
+    setError('')
+    setBusy(true)
+    try {
+      await signInWithGoogle()
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -42,7 +53,7 @@ export default function Login() {
       subtitle="Lock it. Forget it. Get it back on schedule."
       footer={
         <span>
-          New to Wastel?{' '}
+          New to Pytif?{' '}
           <Link to="/register" className="font-semibold text-brand-600">
             Create an account
           </Link>
@@ -55,14 +66,14 @@ export default function Login() {
             <Alert kind="error">{error}</Alert>
           </div>
         )}
-        <Field label="Mpesa number">
+        <Field label="Email">
           <input
             className="field"
-            inputMode="numeric"
-            placeholder="0712 345 678"
-            value={form.mpesaNumber}
-            onChange={(e) => setForm({ ...form, mpesaNumber: e.target.value })}
-            autoComplete="username"
+            type="email"
+            placeholder="jane@example.com"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            autoComplete="email"
           />
         </Field>
         <Field label="Password">
@@ -86,6 +97,13 @@ export default function Login() {
           {busy ? <Spinner /> : 'Log in'}
         </button>
       </form>
+
+      {!usingMockBackend && (
+        <>
+          <OrDivider />
+          <GoogleButton onClick={google} disabled={busy} />
+        </>
+      )}
 
       {usingMockBackend && (
         <button onClick={demo} className="btn-ghost mt-3 w-full" disabled={busy}>

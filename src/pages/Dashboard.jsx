@@ -39,7 +39,7 @@ export default function Dashboard() {
   return (
     <div className="animate-fade-in">
       <header className="flex items-center justify-between py-4">
-        <Logo />
+        <Logo size={44} />
         <button
           onClick={async () => {
             await logout()
@@ -92,7 +92,7 @@ export default function Dashboard() {
                   <span
                     className={`absolute -left-[27px] top-1.5 h-3 w-3 rounded-full border-2 border-white ${
                       t.status === 'SUCCESS'
-                        ? 'bg-emerald-500'
+                        ? 'bg-accent-500'
                         : t.status === 'FAILED'
                           ? 'bg-rose-500'
                           : isNext
@@ -128,7 +128,7 @@ export default function Dashboard() {
         {active.length === 0 ? (
           <EmptyState
             title="Nothing locked yet"
-            subtitle="Create your first commitment schedule and let Wastel pay your future self."
+            subtitle="Create your first commitment schedule and let Pytif pay your future self."
             action={
               <Link to="/app/new" className="btn-primary">
                 Build a schedule

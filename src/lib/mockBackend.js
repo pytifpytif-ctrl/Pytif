@@ -64,37 +64,45 @@ function setSession(session) {
   else localStorage.removeItem(SESSION_KEY)
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 // ---- Auth ----
-async function register({ name, mpesaNumber, password }) {
+async function register({ name, email, password }) {
   await delay()
   const db = loadDb()
-  const phone = normalizePhone(mpesaNumber)
-  if (!/^0\d{9}$/.test(phone)) throw new Error('Enter a valid Safaricom number, e.g. 0712345678')
-  if (db.users.some((u) => u.mpesa_number === phone)) {
-    throw new Error('An account with this number already exists. Try logging in.')
+  const cleanEmail = String(email || '').trim().toLowerCase()
+  if (!EMAIL_RE.test(cleanEmail)) throw new Error('Enter a valid email address.')
+  if (db.users.some((u) => u.email === cleanEmail)) {
+    throw new Error('An account with this email already exists. Try logging in.')
   }
   const user = {
     id: uid(),
     name: name.trim(),
-    mpesa_number: phone,
+    email: cleanEmail,
+    mpesa_number: '', // captured + confirmed during onboarding
     password_hash: pseudoHash(password),
-    is_verified: true, // OTP auto-verified in demo
+    is_verified: false,
     created_at: new Date().toISOString(),
   }
   db.users.push(user)
   saveDb(db)
-  const session = { userId: user.id }
-  setSession(session)
-  return publicUser(user)
+  setSession({ userId: user.id })
+  // Demo mode has no email delivery, so we skip confirmation and log straight in.
+  return { user: publicUser(user), needsEmailConfirm: false }
 }
 
-async function login({ mpesaNumber, password }) {
+async function resendConfirmation() {
+  await delay()
+  return true
+}
+
+async function login({ email, password }) {
   await delay()
   const db = loadDb()
-  const phone = normalizePhone(mpesaNumber)
-  const user = db.users.find((u) => u.mpesa_number === phone)
+  const cleanEmail = String(email || '').trim().toLowerCase()
+  const user = db.users.find((u) => u.email === cleanEmail)
   if (!user || user.password_hash !== pseudoHash(password)) {
-    throw new Error('Wrong number or password.')
+    throw new Error('Wrong email or password.')
   }
   setSession({ userId: user.id })
   return publicUser(user)
@@ -112,19 +120,92 @@ async function currentUser() {
   return user ? publicUser(user) : null
 }
 
-async function resetPassword({ mpesaNumber, newPassword }) {
+async function signInWithGoogle() {
+  throw new Error('Google sign-in needs a Supabase connection (set VITE_SUPABASE_URL).')
+}
+
+async function updateProfile({ name, mpesaNumber }) {
   await delay()
   const db = loadDb()
+  const session = getSession()
+  if (!session) throw new Error('Not signed in')
+  const user = db.users.find((u) => u.id === session.userId)
+  if (user) {
+    if (name) user.name = name.trim()
+    if (mpesaNumber) user.mpesa_number = normalizePhone(mpesaNumber)
+    saveDb(db)
+  }
+  return publicUser(user)
+}
+
+async function sendOtp({ mpesaNumber }) {
+  await delay()
+  const db = loadDb()
+  const session = getSession()
+  if (!session) throw new Error('Not signed in')
   const phone = normalizePhone(mpesaNumber)
-  const user = db.users.find((u) => u.mpesa_number === phone)
-  if (!user) throw new Error('No account found for that number.')
+  if (!/^0\d{9}$/.test(phone)) throw new Error('Enter a valid Safaricom number, e.g. 0712345678')
+  if (db.users.some((u) => u.id !== session.userId && u.mpesa_number === phone && u.is_verified)) {
+    throw new Error('That Mpesa number is already linked to another account.')
+  }
+  const code = String(Math.floor(100000 + Math.random() * 900000))
+  const user = db.users.find((u) => u.id === session.userId)
+  user.pending_otp = { code, phone, expires: Date.now() + 5 * 60 * 1000 }
+  saveDb(db)
+  return { ok: true, sent: false, devCode: code }
+}
+
+async function verifyOtp({ mpesaNumber, code }) {
+  await delay()
+  const db = loadDb()
+  const session = getSession()
+  if (!session) throw new Error('Not signed in')
+  const phone = normalizePhone(mpesaNumber)
+  const user = db.users.find((u) => u.id === session.userId)
+  const pending = user?.pending_otp
+  if (!pending || pending.phone !== phone) throw new Error('No active code. Request a new one.')
+  if (pending.expires < Date.now()) throw new Error('Code expired. Request a new one.')
+  if (String(code).trim() !== pending.code) throw new Error('Incorrect code. Try again.')
+  user.mpesa_number = phone
+  user.is_verified = true
+  delete user.pending_otp
+  saveDb(db)
+  return publicUser(user)
+}
+
+function onAuthChange() {
+  return () => {}
+}
+
+async function resetPassword({ email }) {
+  await delay()
+  const db = loadDb()
+  const cleanEmail = String(email || '').trim().toLowerCase()
+  const user = db.users.find((u) => u.email === cleanEmail)
+  if (!user) throw new Error('No account found for that email.')
+  return true
+}
+
+async function updatePassword({ newPassword }) {
+  await delay()
+  const db = loadDb()
+  const session = getSession()
+  if (!session) throw new Error('Not signed in')
+  const user = db.users.find((u) => u.id === session.userId)
   user.password_hash = pseudoHash(newPassword)
   saveDb(db)
   return true
 }
 
 function publicUser(u) {
-  return { id: u.id, name: u.name, mpesa_number: u.mpesa_number, is_verified: u.is_verified }
+  return {
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    mpesa_number: u.mpesa_number,
+    is_verified: u.is_verified,
+    needs_onboarding: !/^0\d{9}$/.test(String(u.mpesa_number || '')),
+  }
 }
 
 // ---- Schedules ----
@@ -420,6 +501,7 @@ async function seedDemo() {
   const user = {
     id: uid(),
     name: 'Demo User',
+    email: 'demo@pytif.app',
     mpesa_number: '0712345678',
     password_hash: pseudoHash('demo1234'),
     is_verified: true,
@@ -434,10 +516,17 @@ async function seedDemo() {
 export const mockBackend = {
   isMock: true,
   register,
+  resendConfirmation,
   login,
   logout,
   currentUser,
+  signInWithGoogle,
+  updateProfile,
+  onAuthChange,
+  sendOtp,
+  verifyOtp,
   resetPassword,
+  updatePassword,
   createSchedule,
   confirmDeposit,
   listSchedules,

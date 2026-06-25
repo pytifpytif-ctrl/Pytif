@@ -4,31 +4,48 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Primary — deep electric blue (#1B4FDB at 600). Trust, stability.
         brand: {
-          50: '#eef5ff',
-          100: '#d9e8ff',
-          200: '#bcd6ff',
-          300: '#8ebbff',
-          400: '#5994ff',
-          500: '#326dff',
-          600: '#1a4ef5',
-          700: '#143ce1',
-          800: '#1733b6',
-          900: '#19318f',
-          950: '#141f57',
+          50: '#eef3fe',
+          100: '#d9e4fd',
+          200: '#b9ccfb',
+          300: '#8aa9f7',
+          400: '#547df1',
+          500: '#2f5be7',
+          600: '#1b4fdb',
+          700: '#1740b8',
+          800: '#183a95',
+          900: '#193576',
+          950: '#122150',
+        },
+        // Accent — clean emerald green (#00C896 at 500). Money arriving, success.
+        accent: {
+          50: '#e6fbf4',
+          100: '#c5f5e5',
+          200: '#8eebcd',
+          300: '#4fdcb0',
+          400: '#1ace97',
+          500: '#00c896',
+          600: '#00a87e',
+          700: '#008566',
+          800: '#036a52',
+          900: '#045744',
+          950: '#013228',
         },
         ink: {
           DEFAULT: '#0d1321',
           soft: '#3a4256',
           muted: '#6b7280',
         },
+        // Neutral — off-white background / breathing room.
+        canvas: '#f4f6fa',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
       boxShadow: {
         card: '0 1px 2px rgba(13,19,33,0.04), 0 8px 24px rgba(13,19,33,0.06)',
-        float: '0 12px 40px rgba(26,78,245,0.18)',
+        float: '0 12px 40px rgba(27,79,219,0.18)',
       },
       keyframes: {
         'fade-in': {

@@ -1,10 +1,11 @@
+import { Link } from 'react-router-dom'
 import { Logo } from '../components/ui.jsx'
 
 export default function AuthShell({ title, subtitle, children, footer }) {
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-[#f4f6fb] px-6">
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-[#f4f6fa] px-6">
       <div className="pt-12">
-        <Logo size={34} />
+        <Logo size={52} />
       </div>
 
       <div className="mt-8 flex-1">
@@ -15,7 +16,17 @@ export default function AuthShell({ title, subtitle, children, footer }) {
         <div className="animate-fade-in">{children}</div>
       </div>
 
-      {footer && <div className="py-8 text-center text-sm text-ink-muted">{footer}</div>}
+      {footer && <div className="pt-8 text-center text-sm text-ink-muted">{footer}</div>}
+
+      <div className="pb-8 pt-4 text-center text-xs text-ink-muted">
+        <Link to="/terms" className="hover:text-brand-600">
+          Terms
+        </Link>
+        <span className="mx-2">·</span>
+        <Link to="/privacy" className="hover:text-brand-600">
+          Privacy
+        </Link>
+      </div>
     </div>
   )
 }

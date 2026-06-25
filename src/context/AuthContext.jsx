@@ -26,16 +26,26 @@ export function AuthProvider({ children }) {
         if (mounted) setLoading(false)
       }
     })()
+
+    // Resolve OAuth redirects (Google) and keep the session in sync.
+    const unsubscribe = api.onAuthChange?.(async () => {
+      const u = await api.currentUser()
+      if (mounted) setUser(u)
+    })
+
     return () => {
       mounted = false
+      unsubscribe?.()
     }
   }, [])
 
   const register = useCallback(async (payload) => {
-    const u = await api.register(payload)
-    setUser(u)
-    return u
+    const res = await api.register(payload)
+    if (res?.user) setUser(res.user)
+    return res
   }, [])
+
+  const resendConfirmation = useCallback((payload) => api.resendConfirmation(payload), [])
 
   const login = useCallback(async (payload) => {
     const u = await api.login(payload)
@@ -54,7 +64,41 @@ export function AuthProvider({ children }) {
     return u
   }, [])
 
-  const value = { user, loading, register, login, logout, refresh, seedDemo }
+  const signInWithGoogle = useCallback(async () => {
+    await api.signInWithGoogle()
+  }, [])
+
+  const updateProfile = useCallback(async (payload) => {
+    const u = await api.updateProfile(payload)
+    setUser(u)
+    return u
+  }, [])
+
+  const sendOtp = useCallback((payload) => api.sendOtp(payload), [])
+
+  const verifyOtp = useCallback(async (payload) => {
+    const u = await api.verifyOtp(payload)
+    setUser(u)
+    return u
+  }, [])
+
+  const updatePassword = useCallback((payload) => api.updatePassword(payload), [])
+
+  const value = {
+    user,
+    loading,
+    register,
+    resendConfirmation,
+    login,
+    logout,
+    refresh,
+    seedDemo,
+    signInWithGoogle,
+    updateProfile,
+    sendOtp,
+    verifyOtp,
+    updatePassword,
+  }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 

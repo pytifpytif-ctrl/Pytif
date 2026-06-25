@@ -188,7 +188,7 @@ function SendRow({ t }) {
         <span
           className={`grid h-9 w-9 place-items-center rounded-full ${
             t.status === 'SUCCESS'
-              ? 'bg-emerald-50 text-emerald-600'
+              ? 'bg-accent-50 text-accent-600'
               : t.status === 'FAILED'
                 ? 'bg-rose-50 text-rose-600'
                 : 'bg-sky-50 text-sky-600'

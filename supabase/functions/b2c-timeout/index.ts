@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
         })
         const phone = (txn as any).schedules?.destination_mpesa
         if (phone) {
-          await sendSms(phone, `Wastel: a scheduled send of Ksh ${txn.amount} failed and will be retried.`)
+          await sendSms(phone, `Pytif: a scheduled send of Ksh ${txn.amount} failed and will be retried.`)
         }
       }
     }

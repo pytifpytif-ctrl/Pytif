@@ -166,9 +166,9 @@ export default function ScheduleBuilder() {
   const progress = ((stepIndex + 1) / steps.length) * 100
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-[#f4f6fb]">
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-[#f4f6fa]">
       {/* Top bar + progress */}
-      <div className="sticky top-0 z-20 bg-[#f4f6fb]/95 px-5 pb-3 pt-5 backdrop-blur">
+      <div className="sticky top-0 z-20 bg-[#f4f6fa]/95 px-5 pb-3 pt-5 backdrop-blur">
         <div className="flex items-center gap-3">
           <button
             onClick={back}
@@ -535,7 +535,7 @@ function StepDestination({ destination }) {
 
       <div className="card flex items-center justify-between p-4">
         <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
+          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-accent-50 text-accent-600">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
               <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -619,7 +619,7 @@ function Row({ k, v }) {
 
 function StkWaiting({ total, number }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#f4f6fb] px-8 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#f4f6fa] px-8 text-center">
       <div className="relative mb-8">
         <span className="absolute inset-0 animate-pulse-ring rounded-full bg-brand-400" />
         <span className="relative grid h-20 w-20 place-items-center rounded-full bg-brand-600 text-white shadow-float">
@@ -643,8 +643,8 @@ function StkWaiting({ total, number }) {
 
 function SuccessScreen({ result, navigate }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#f4f6fb] px-8 text-center">
-      <div className="mb-6 grid h-20 w-20 place-items-center rounded-full bg-emerald-500 text-white shadow-float">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#f4f6fa] px-8 text-center">
+      <div className="mb-6 grid h-20 w-20 place-items-center rounded-full bg-accent-500 text-white shadow-float">
         <svg width="38" height="38" viewBox="0 0 24 24" fill="none">
           <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>

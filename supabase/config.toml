@@ -1,11 +1,14 @@
 # Supabase project config for the Wastel CLI workflow.
 project_id = "wastel"
 
-[functions.register]
-verify_jwt = false
-
 [functions.reset-password]
 verify_jwt = false
+
+[functions.send-otp]
+verify_jwt = true
+
+[functions.verify-otp]
+verify_jwt = true
 
 [functions.create-schedule]
 verify_jwt = true
