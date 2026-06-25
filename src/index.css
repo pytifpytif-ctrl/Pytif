@@ -4,27 +4,28 @@
 
 :root {
   color-scheme: light;
-  /* Semantic color channels (R G B) consumed by Tailwind tokens. */
-  --app: 244 246 250;
+  /* Neutral white theme — channels (R G B) consumed by Tailwind tokens. */
+  --app: 255 255 255;
   --surface: 255 255 255;
-  --surface-soft: 241 244 249;
+  --surface-soft: 245 245 245;
   --surface-raised: 255 255 255;
-  --line: 226 231 239;
-  --text: 13 19 33;
-  --text-soft: 58 66 86;
-  --text-muted: 107 114 128;
+  --line: 229 229 229;
+  --text: 23 23 23;
+  --text-soft: 64 64 64;
+  --text-muted: 115 115 115;
 }
 
 .dark {
   color-scheme: dark;
-  --app: 9 12 22;
-  --surface: 22 28 46;
-  --surface-soft: 31 40 60;
-  --surface-raised: 28 36 56;
-  --line: 42 52 75;
-  --text: 237 242 249;
-  --text-soft: 191 200 216;
-  --text-muted: 142 152 172;
+  /* Neutral black theme — no blue tint. */
+  --app: 10 10 10;
+  --surface: 23 23 23;
+  --surface-soft: 38 38 38;
+  --surface-raised: 32 32 32;
+  --line: 42 42 42;
+  --text: 245 245 245;
+  --text-soft: 200 200 200;
+  --text-muted: 150 150 150;
 }
 
 html,
