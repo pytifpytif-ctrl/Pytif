@@ -15,7 +15,7 @@ export function verifyWebhookSecret(req: Request): boolean {
     const env = (Deno.env.get('MPESA_ENV') ?? 'sandbox').toLowerCase()
     return env !== 'production'
   }
-  return (req.headers.get('x-pytif-webhook-secret') ?? '') === secret
+  return (req.headers.get('x-jiokoe-webhook-secret') ?? '') === secret
 }
 
 export function clientIp(req: Request): string {

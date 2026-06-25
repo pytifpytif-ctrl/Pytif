@@ -144,7 +144,7 @@ export async function b2cPayment(opts: { amount: number; phone: string; remarks:
       Remarks: opts.remarks.slice(0, 100),
       QueueTimeOutURL: env('MPESA_B2C_QUEUE_TIMEOUT_URL'),
       ResultURL: env('MPESA_B2C_RESULT_URL'),
-      Occasion: 'Pytif',
+      Occasion: 'Jiokoe',
     }),
   })
   return await res.json()

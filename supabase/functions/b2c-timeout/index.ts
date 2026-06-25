@@ -3,25 +3,7 @@
 import { json } from '../_shared/cors.ts'
 import { adminClient } from '../_shared/supabaseAdmin.ts'
 import { auditLog } from '../_shared/auth.ts'
-
-async function sendSms(to: string, message: string) {
-  const apiKey = Deno.env.get('AT_API_KEY')
-  const username = Deno.env.get('AT_USERNAME')
-  if (!apiKey || !username) return
-  try {
-    await fetch('https://api.africastalking.com/version1/messaging', {
-      method: 'POST',
-      headers: {
-        apiKey,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Accept: 'application/json',
-      },
-      body: new URLSearchParams({ username, to, message }),
-    })
-  } catch (_) {
-    // best-effort
-  }
-}
+import { sendSms } from '../_shared/sms.ts'
 
 Deno.serve(async (req) => {
   const supabase = adminClient()
@@ -48,7 +30,7 @@ Deno.serve(async (req) => {
       })
       const phone = (txn as { schedules?: { destination_mpesa?: string } }).schedules?.destination_mpesa
       if (phone) {
-        await sendSms(phone, `Pytif: a scheduled send of Ksh ${txn.amount} failed and will be retried.`)
+        await sendSms(phone, `Jiokoe: a scheduled send of Ksh ${txn.amount} failed and will be retried.`)
       }
       await auditLog(supabase, 'b2c_timeout', { txnId: txn.id }, txn.user_id, req)
     }

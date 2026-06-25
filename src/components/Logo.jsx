@@ -1,6 +1,6 @@
 import { useId } from 'react'
 
-/** Pytif mark — orange rounded square, lock + upward arrow (commit → scheduled payout). */
+/** Jiokoe mark — orange rounded square, lock + upward arrow (commit → scheduled payout). */
 export function LogoMark({ size = 36, className = '' }) {
   const id = useId().replace(/:/g, '')
 
@@ -62,12 +62,12 @@ export function Logo({ size = 36, wordmark, className = '' }) {
       className={`inline-flex items-center select-none ${showWordmark ? 'gap-3' : ''} ${className}`}
       style={{ height: size }}
       role="img"
-      aria-label="Pytif"
+      aria-label="Jiokoe"
     >
       <LogoMark size={markSize} className="shrink-0" />
       {showWordmark && (
         <span className="font-extrabold tracking-tight text-ink" style={{ fontSize: size * 0.38, lineHeight: 1 }}>
-          Pytif
+          Jiokoe
         </span>
       )}
     </span>

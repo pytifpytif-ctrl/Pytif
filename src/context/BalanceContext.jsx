@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 const BalanceContext = createContext(null)
-const STORAGE_KEY = 'pytif-hide-balance'
+const STORAGE_KEY = 'jiokoe-hide-balance'
 
 export function BalanceProvider({ children }) {
   const [hidden, setHidden] = useState(() => {

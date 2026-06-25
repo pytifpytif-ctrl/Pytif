@@ -6,16 +6,16 @@ export default function Terms() {
   return (
     <LegalLayout title="Terms of Service" updated={UPDATED}>
       <p>
-        These Terms of Service ("Terms") govern your access to and use of Pytif (the "Service"), a
+        These Terms of Service ("Terms") govern your access to and use of Jiokoe (the "Service"), a
         commitment wallet that lets you lock funds and have them paid back to your own Mpesa number
         on a schedule you choose. By creating an account or using the Service, you agree to these
         Terms.
       </p>
 
-      <Section heading="1. What Pytif does">
+      <Section heading="1. What Jiokoe does">
         <p>
-          Pytif lets you commit a sum of money up front and then disburses it back to your own
-          registered Mpesa number in scheduled installments. Pytif is a self-payment scheduling
+          Jiokoe lets you commit a sum of money up front and then disburses it back to your own
+          registered Mpesa number in scheduled installments. Jiokoe is a self-payment scheduling
           tool. It is not a bank, deposit-taking institution, investment product, or lender, and it
           does not pay interest on funds you commit.
         </p>
@@ -53,7 +53,7 @@ export default function Terms() {
 
       <Section heading="5. Fees">
         <p>
-          Pytif charges a small fee per scheduled send. The applicable fee is shown to you before
+          Jiokoe charges a small fee per scheduled send. The applicable fee is shown to you before
           you confirm a schedule. Mpesa transaction charges, where applicable, may also apply and
           are determined by Safaricom.
         </p>
@@ -78,9 +78,9 @@ export default function Terms() {
       <Section heading="8. Disclaimers and limitation of liability">
         <p>
           The Service is provided "as is" without warranties of any kind. To the maximum extent
-          permitted by law, Pytif is not liable for any indirect, incidental, or consequential
+          permitted by law, Jiokoe is not liable for any indirect, incidental, or consequential
           damages, or for any loss arising from third-party payment systems. Our total liability for
-          any claim is limited to the fees you paid to Pytif in the three months preceding the
+          any claim is limited to the fees you paid to Jiokoe in the three months preceding the
           claim.
         </p>
       </Section>
@@ -96,8 +96,8 @@ export default function Terms() {
       <Section heading="10. Contact">
         <p>
           Questions about these Terms? Reach us at{' '}
-          <a className="font-semibold text-brand-600" href="mailto:support@pytif.com">
-            support@pytif.com
+          <a className="font-semibold text-brand-600" href="mailto:support@jiokoe.com">
+            support@jiokoe.com
           </a>
           .
         </p>

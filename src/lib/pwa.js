@@ -1,4 +1,4 @@
-const DISMISS_KEY = 'pytif-pwa-dismissed-until'
+const DISMISS_KEY = 'jiokoe-pwa-dismissed-until'
 const DISMISS_DAYS = 14
 
 export function isStandalonePwa() {

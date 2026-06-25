@@ -43,7 +43,7 @@ export default function Login() {
       subtitle="Sign in to your commitment wallet."
       footer={
         <span>
-          New to Pytif?{' '}
+          New to Jiokoe?{' '}
           <Link to="/register" className="font-semibold text-brand-600">
             Create an account
           </Link>

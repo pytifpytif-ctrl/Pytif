@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 const ThemeContext = createContext(null)
-const STORAGE_KEY = 'pytif-theme'
+const STORAGE_KEY = 'jiokoe-theme'
 
 function systemPrefersDark() {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches

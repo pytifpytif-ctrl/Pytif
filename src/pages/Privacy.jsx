@@ -6,8 +6,8 @@ export default function Privacy() {
   return (
     <LegalLayout title="Privacy Policy" updated={UPDATED}>
       <p>
-        This Privacy Policy explains how Pytif ("we", "us") collects, uses, and protects your
-        personal information when you use our commitment wallet service. By using Pytif, you agree
+        This Privacy Policy explains how Jiokoe ("we", "us") collects, uses, and protects your
+        personal information when you use our commitment wallet service. By using Jiokoe, you agree
         to the practices described here.
       </p>
 
@@ -80,7 +80,7 @@ export default function Privacy() {
 
       <Section heading="7. Children">
         <p>
-          Pytif is not intended for anyone under 18. We do not knowingly collect personal
+          Jiokoe is not intended for anyone under 18. We do not knowingly collect personal
           information from children.
         </p>
       </Section>
@@ -96,8 +96,8 @@ export default function Privacy() {
       <Section heading="9. Contact">
         <p>
           For privacy questions or requests, email{' '}
-          <a className="font-semibold text-brand-600" href="mailto:privacy@pytif.com">
-            privacy@pytif.com
+          <a className="font-semibold text-brand-600" href="mailto:privacy@jiokoe.com">
+            privacy@jiokoe.com
           </a>
           .
         </p>

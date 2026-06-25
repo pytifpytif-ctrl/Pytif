@@ -38,7 +38,8 @@ export default function Dashboard() {
   const active = data.schedules.filter((s) => s.status === 'ACTIVE')
   const others = data.schedules.filter((s) => s.status !== 'ACTIVE')
 
-  const firstName = (user?.name && user.name !== 'Pytif user' ? user.name.split(' ')[0] : '') || 'there'
+  const defaultNames = ['Jiokoe user', 'Pytif user', 'Wastel user']
+  const firstName = (user?.name && !defaultNames.includes(user.name) ? user.name.split(' ')[0] : '') || 'there'
 
   const todayTotal = data.upcomingToday.length
   const todayDone = data.upcomingToday.filter((t) => t.status === 'SUCCESS').length
@@ -287,7 +288,7 @@ function SendRow({ t, highlight, compact }) {
 const STEPS = [
   { icon: 'calendar', title: 'Choose a pattern', desc: 'Every day, set weekdays, or exact dates.' },
   { icon: 'clock', title: 'Set times & amounts', desc: 'Decide when and how much returns to you.' },
-  { icon: 'lockClosed', title: 'Lock & relax', desc: 'Pytif pays your future self on schedule.' },
+  { icon: 'lockClosed', title: 'Lock & relax', desc: 'Jiokoe pays your future self on schedule.' },
 ]
 
 function GetStarted() {

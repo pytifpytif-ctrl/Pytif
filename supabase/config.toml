@@ -1,5 +1,5 @@
-# Supabase project config for the Wastel CLI workflow.
-project_id = "wastel"
+# Supabase project config for the Jiokoe CLI workflow.
+project_id = "jiokoe"
 
 [functions.reset-password]
 verify_jwt = false

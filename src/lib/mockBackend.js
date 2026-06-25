@@ -1,5 +1,5 @@
 // Local, in-browser backend used when Supabase is not configured.
-// It persists to localStorage and simulates the full Wastel lifecycle:
+// It persists to localStorage and simulates the full Jiokoe lifecycle:
 // deposit (STK) -> activation -> pre-generated transactions -> scheduler ticks
 // that "fire" B2C sends and deduct the locked balance.
 //
@@ -9,8 +9,8 @@
 import { depositBreakdownForDates, feeFor } from './fees.js'
 import { computeActiveDates, generateTransactions } from './schedule.js'
 
-const DB_KEY = 'wastel_db_v1'
-const SESSION_KEY = 'wastel_session_v1'
+const DB_KEY = 'jiokoe_db_v1'
+const SESSION_KEY = 'jiokoe_session_v1'
 
 function uid() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {

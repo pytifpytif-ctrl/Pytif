@@ -7,7 +7,7 @@ import { ScreenHeader, Spinner, StatusBadge, EmptyState } from '../components/ui
 import { Icon } from '../components/icons.jsx'
 import { formatKes, formatDateShort, formatDateLong, formatTime12 } from '../lib/format.js'
 
-const READ_KEY = 'pytif-notifs-read'
+const READ_KEY = 'jiokoe-notifs-read'
 
 const FILTERS = [
   { id: 'ALL', label: 'All' },

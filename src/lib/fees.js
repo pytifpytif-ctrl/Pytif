@@ -1,4 +1,4 @@
-// Wastel fee structure (Phase 1).
+// Jiokoe fee structure (Phase 1).
 // All fees are calculated upfront and bundled into the deposit total.
 // Each send goes out as the clean amount — no deductions at send time.
 //
@@ -7,7 +7,9 @@
 
 import { slotsForDate } from './schedule.js'
 
-export const WASTEL_FEE_PER_SEND = 5
+export const JIOKOE_FEE_PER_SEND = 5
+/** @deprecated Use JIOKOE_FEE_PER_SEND */
+export const WASTEL_FEE_PER_SEND = JIOKOE_FEE_PER_SEND
 
 // [maxAmountInclusive, mpesaFee]
 const MPESA_B2C_BANDS = [
@@ -33,10 +35,10 @@ export function mpesaFeeFor(amount) {
   return MPESA_B2C_BANDS[MPESA_B2C_BANDS.length - 1][1]
 }
 
-/** Total fee (Mpesa + Wastel) for a single send. */
+/** Total fee (Mpesa + Jiokoe) for a single send. */
 export function feeFor(amount) {
   if (!amount || Number(amount) <= 0) return 0
-  return mpesaFeeFor(amount) + WASTEL_FEE_PER_SEND
+  return mpesaFeeFor(amount) + JIOKOE_FEE_PER_SEND
 }
 
 /** Breakdown for a single send. */
@@ -44,8 +46,8 @@ export function feeBreakdownFor(amount) {
   const mpesa = mpesaFeeFor(amount)
   return {
     mpesa,
-    wastel: amount > 0 ? WASTEL_FEE_PER_SEND : 0,
-    total: amount > 0 ? mpesa + WASTEL_FEE_PER_SEND : 0,
+    jiokoe: amount > 0 ? JIOKOE_FEE_PER_SEND : 0,
+    total: amount > 0 ? mpesa + JIOKOE_FEE_PER_SEND : 0,
   }
 }
 
@@ -61,16 +63,16 @@ export function depositBreakdown(slots, activeDays) {
 
   let baseAmount = 0
   let mpesaFees = 0
-  let wastelFees = 0
+  let jiokoeFees = 0
 
   for (const slot of activeSlots) {
     const amount = Number(slot.amount) || 0
     baseAmount += amount * activeDays
     mpesaFees += mpesaFeeFor(amount) * activeDays
-    wastelFees += WASTEL_FEE_PER_SEND * activeDays
+    jiokoeFees += JIOKOE_FEE_PER_SEND * activeDays
   }
 
-  const serviceFees = wastelFees
+  const serviceFees = jiokoeFees
   const totalFees = mpesaFees + serviceFees
   const total = baseAmount + totalFees
 
@@ -107,7 +109,7 @@ export function depositBreakdownForDates(activeDateList, slots, pattern) {
       const amount = Number(slot.amount) || 0
       baseAmount += amount
       mpesaFees += mpesaFeeFor(amount)
-      serviceFees += WASTEL_FEE_PER_SEND
+      serviceFees += JIOKOE_FEE_PER_SEND
       totalSends += 1
     }
   }

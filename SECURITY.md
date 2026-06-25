@@ -1,6 +1,6 @@
-# Pytif Security
+# Jiokoe Security
 
-Pytif handles real money. No system is 100% unpenetrable, but this document describes what is implemented in code and what you must configure in production.
+Jiokoe handles real money. No system is 100% unpenetrable, but this document describes what is implemented in code and what you must configure in production.
 
 ## Architecture
 

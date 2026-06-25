@@ -19,7 +19,7 @@ export default function Landing() {
 
       {/* Top bar */}
       <header className="relative z-10 flex items-center justify-between px-5 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <Link to="/" aria-label="Pytif home" className="opacity-90 transition hover:opacity-100">
+        <Link to="/" aria-label="Jiokoe home" className="opacity-90 transition hover:opacity-100">
           <Logo size={30} />
         </Link>
         {!user && (
@@ -47,7 +47,7 @@ export default function Landing() {
               smarter saving.
             </h1>
             <p className="mx-auto mt-3 max-w-[18rem] text-sm leading-relaxed text-zinc-500">
-              Lock money you&apos;d spend impulsively. Pytif sends it back to your M-Pesa on your schedule.
+              Lock money you&apos;d spend impulsively. Jiokoe sends it back to your M-Pesa on your schedule.
             </p>
           </div>
 
@@ -85,7 +85,7 @@ export default function Landing() {
         </div>
 
         <footer className="mt-6 flex items-center justify-center gap-4 text-[11px] text-zinc-400">
-          <span>© {new Date().getFullYear()} Pytif</span>
+          <span>© {new Date().getFullYear()} Jiokoe</span>
           <Link to="/terms" className="hover:text-zinc-700">
             Terms
           </Link>
@@ -134,7 +134,7 @@ function HeroCards() {
             <p className="mt-1 text-2xl font-extrabold tracking-tight sm:text-[1.65rem]">Ksh 48,500</p>
           </div>
           <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-bold tracking-wide text-white/90">
-            PYTIF
+            JIOKOE
           </span>
         </div>
         <div className="relative mt-3 flex items-center gap-2">

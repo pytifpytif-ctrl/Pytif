@@ -1,14 +1,14 @@
-# Pytif — Commitment Wallet (MVP, Phase 1)
+# Jiokoe — Commitment Wallet (MVP, Phase 1)
 
 > Lock it. Forget it. Get it back on schedule.
 
-Pytif is a web-based **commitment wallet**. You give Pytif your money, it holds
+Jiokoe is a web-based **commitment wallet**. You give Jiokoe your money, it holds
 it, and returns it to you on a schedule you define in advance. Once committed,
 the money **cannot be freely withdrawn** — that single constraint is the entire
 product.
 
 Unlike Mpesa Ratiba (date-only, cancellable) or savings apps (lock but don't
-disburse), Pytif combines **time-of-day scheduled micro-disbursements** with a
+disburse), Jiokoe combines **time-of-day scheduled micro-disbursements** with a
 **locked balance**. Set a 6:00 AM transport send, a 12:00 PM lunch send, and a
 5:30 PM fare-home send — all from one locked deposit.
 
@@ -30,7 +30,7 @@ This repo is **Phase 1**: time-of-day scheduled sends **to self only**.
 - **Transaction History** with status / schedule / date-range filters.
 - **Auth**: register (with OTP step), login, forgot-password — keyed on the
   Mpesa number.
-- **Fee engine** matching the published Mpesa B2C bands + flat Ksh 5 Pytif fee.
+- **Fee engine** matching the published Mpesa B2C bands + flat Ksh 5 Jiokoe fee.
 - **Full Supabase backend**: SQL schema + RLS, activation & scheduler functions,
   `pg_cron` every-minute job, and **Daraja edge functions** (STK push, B2C, and
   all three callbacks).
@@ -69,7 +69,7 @@ To reset the demo data: clear the site's localStorage.
 | Scheduler | Supabase `pg_cron` | Every-minute due-send job |
 | Collect | Daraja STK Push (C2B) | Prompts the user to pay |
 | Disburse | Daraja B2C | Sends from company Mpesa to user |
-| SMS | Africa's Talking | Failed-send alerts |
+| SMS | Africa's Talking | OTP codes + failed-send alerts |
 | Hosting | Vercel (frontend) | Free tier is fine for MVP |
 
 ---
@@ -112,7 +112,7 @@ create extension if not exists pg_net;
 alter database postgres set app.b2c_dispatch_url = 'https://<ref>.functions.supabase.co/b2c-send';
 alter database postgres set app.service_role_key  = '<service-role-key>';
 
-select cron.schedule('wastel-sends', '* * * * *', $$ select public.process_due_sends(); $$);
+select cron.schedule('jiokoe-sends', '* * * * *', $$ select public.process_due_sends(); $$);
 ```
 
 > **Timezone:** all sends are reasoned about in **EAT (UTC+3)**. `pg_cron` runs
@@ -139,7 +139,7 @@ supabase secrets set \
   MPESA_STK_CALLBACK_URL=https://<ref>.functions.supabase.co/stk-callback \
   MPESA_B2C_RESULT_URL=https://<ref>.functions.supabase.co/b2c-result \
   MPESA_B2C_QUEUE_TIMEOUT_URL=https://<ref>.functions.supabase.co/b2c-timeout \
-  AT_API_KEY=... AT_USERNAME=...
+  AT_USERNAME=sandbox AT_API_KEY=...
 ```
 
 ### 3. Frontend
@@ -161,7 +161,7 @@ VITE_SUPABASE_ANON_KEY=<anon-key>
 All fees are calculated **upfront** and bundled into the deposit. Each send goes
 out as the **clean amount** — no deductions at send time.
 
-| Amount per send (KES) | Mpesa fee | Pytif fee | Total |
+| Amount per send (KES) | Mpesa fee | Jiokoe fee | Total |
 | --- | --- | --- | --- |
 | 1 – 100 | 0 | 5 | 5 |
 | 101 – 500 | 11 | 5 | 16 |
@@ -206,4 +206,4 @@ the build brief for the Phase 2 / Phase 3 roadmap.
 
 ---
 
-_Pytif — MVP Build Brief v1.1 · Confidential · June 2026_
+_Jiokoe — MVP Build Brief v1.1 · Confidential · June 2026_

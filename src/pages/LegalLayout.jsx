@@ -7,7 +7,7 @@ export default function LegalLayout({ title, updated, children }) {
     <div className="min-h-screen">
       <header className="sticky top-0 z-10 border-b border-line bg-app/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-          <Link to="/" aria-label="Pytif home">
+          <Link to="/" aria-label="Jiokoe home">
             <Logo size={36} />
           </Link>
           <div className="flex items-center gap-3">
@@ -40,7 +40,7 @@ export default function LegalLayout({ title, updated, children }) {
               Back to app
             </Link>
           </div>
-          <p className="mt-4">© {new Date().getFullYear()} Pytif. All rights reserved.</p>
+          <p className="mt-4">© {new Date().getFullYear()} Jiokoe. All rights reserved.</p>
         </footer>
       </main>
     </div>

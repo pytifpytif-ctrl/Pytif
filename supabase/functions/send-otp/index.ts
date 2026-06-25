@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     await supabase.from('users').upsert(
       {
         id: user.id,
-        name: user.user_metadata?.name || user.user_metadata?.full_name || 'Pytif user',
+        name: user.user_metadata?.name || user.user_metadata?.full_name || 'Jiokoe user',
         mpesa_number: user.email || user.id,
         is_verified: false,
       },
@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
     })
     if (insErr) return json({ error: 'Could not create verification code.' }, 500)
 
-    const sent = await sendSms(phone, `Your Pytif verification code is ${code}. It expires in 5 minutes.`)
+    const sent = await sendSms(phone, `Your Jiokoe verification code is ${code}. It expires in 5 minutes.`)
     await auditLog(supabase, 'otp_sent', { phone, sent }, user.id, req)
 
     const isProd = (Deno.env.get('MPESA_ENV') ?? 'sandbox').toLowerCase() === 'production'

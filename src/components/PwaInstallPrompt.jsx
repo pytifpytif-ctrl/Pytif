@@ -56,7 +56,7 @@ export default function PwaInstallPrompt() {
             <Icon name="download" size={20} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-ink">Install Pytif</p>
+            <p className="text-sm font-bold text-ink">Install Jiokoe</p>
             <p className="mt-0.5 text-xs leading-snug text-ink-muted">
               {iosHint
                 ? 'Tap Share, then “Add to Home Screen” for app-like access.'

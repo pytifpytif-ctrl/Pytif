@@ -939,7 +939,7 @@ function NeedsNumber({ navigate }) {
       </div>
       <h1 className="text-2xl font-extrabold text-ink">Add your M-Pesa number first</h1>
       <p className="mt-2 max-w-xs text-ink-muted">
-        Pytif needs a verified payout number before you can lock money. Set it up in Settings — it takes a minute.
+        Jiokoe needs a verified payout number before you can lock money. Set it up in Settings — it takes a minute.
       </p>
       <div className="mt-8 w-full max-w-xs space-y-3">
         <button className="btn-primary w-full" onClick={() => navigate('/app/settings')}>

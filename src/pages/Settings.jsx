@@ -86,7 +86,7 @@ export default function Settings() {
               </span>
               <div>
                 <h2 className="font-bold text-ink">Payout M-Pesa number</h2>
-                <p className="text-xs text-ink-muted">Where Pytif sends your scheduled money.</p>
+                <p className="text-xs text-ink-muted">Where Jiokoe sends your scheduled money.</p>
               </div>
             </div>
 
@@ -155,7 +155,7 @@ export default function Settings() {
           <Icon name="arrowRight" size={14} className="text-rose-400" />
         </button>
 
-        <p className="pb-2 text-center text-xs text-ink-muted">Pytif · Phase 1</p>
+        <p className="pb-2 text-center text-xs text-ink-muted">Jiokoe · Phase 1</p>
       </div>
     </div>
   )

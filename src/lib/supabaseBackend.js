@@ -1,10 +1,10 @@
-// Supabase-backed implementation of the Wastel data API.
+// Supabase-backed implementation of the Jiokoe data API.
 //
 // Activated automatically when VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY are set.
 // Mirrors the mock backend's surface so the UI is backend-agnostic.
 //
 // Auth: we treat the Mpesa number as the login identifier by mapping it to a
-// synthetic email (<number>@wastel.user) inside Supabase Auth. The public
+// synthetic email (<number>@jiokoe.user) inside Supabase Auth. The public
 // `users` row stores the real Mpesa number, name and verification flag.
 //
 // Heavy lifting (STK push, B2C, pre-generating transactions) lives in the
@@ -97,14 +97,14 @@ async function currentUser() {
 
   const base = profile || {
     id: data.user.id,
-    name: meta.name || meta.full_name || 'Pytif user',
+    name: meta.name || meta.full_name || 'Jiokoe user',
     mpesa_number: null,
   }
   // Google sign-ups have no Mpesa number yet (the trigger falls back to their
   // email). Flag them so the app can collect it before any money can move.
   return {
     ...base,
-    name: base.name || meta.name || meta.full_name || 'Pytif user',
+    name: base.name || meta.name || meta.full_name || 'Jiokoe user',
     avatar_url: base.avatar_url || meta.avatar_url || meta.picture || null,
     email: data.user.email,
     provider: data.user.app_metadata?.provider || 'email',
@@ -164,7 +164,7 @@ async function updateProfile({ name, mpesaNumber }) {
   if (clash) throw new Error('That Mpesa number is already linked to another account.')
 
   const row = {
-    name: name?.trim() || auth.user.user_metadata?.name || 'Pytif user',
+    name: name?.trim() || auth.user.user_metadata?.name || 'Jiokoe user',
     mpesa_number: phone,
   }
   const { data: existing } = await supabase.from('users').select('id,is_verified').eq('id', auth.user.id).maybeSingle()

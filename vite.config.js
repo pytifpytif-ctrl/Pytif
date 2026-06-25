@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'pwa-192.png', 'pwa-512.png'],
       manifest: {
-        name: 'Pytif — Commitment Wallet',
-        short_name: 'Pytif',
+        name: 'Jiokoe',
+        short_name: 'Jiokoe',
         description: 'Lock your money, get it back on your M-Pesa schedule.',
         theme_color: '#f97316',
         background_color: '#171717',

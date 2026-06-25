@@ -11,7 +11,7 @@ export function subscribeUserData(userId, onChange) {
   }
 
   const channel = supabase
-    .channel(`pytif-live:${userId}`)
+    .channel(`jiokoe-live:${userId}`)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'schedules', filter: `user_id=eq.${userId}` },
