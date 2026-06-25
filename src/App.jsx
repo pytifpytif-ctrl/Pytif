@@ -62,7 +62,9 @@ export default function App() {
       <Route path="/forgot" element={<ForgotPassword />} />
       <Route path="/reset" element={<ResetPassword />} />
       <Route path="/terms" element={<Terms />} />
+      <Route path="/terms-of-service" element={<Terms />} />
       <Route path="/privacy" element={<Privacy />} />
+      <Route path="/privacy-policy" element={<Privacy />} />
 
       <Route
         path="/app/onboarding"
