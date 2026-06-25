@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { api } from '../lib/api.js'
 import { useScheduler } from '../hooks/useScheduler.js'
 import { useBalance } from '../context/BalanceContext.jsx'
@@ -30,6 +31,8 @@ export default function Notifications() {
   const [filter, setFilter] = useState('ALL')
   const [readIds, setReadIds] = useState(loadReadIds)
   const [selected, setSelected] = useState(null)
+  const topChromeRef = useRef(null)
+  const [topChromeHeight, setTopChromeHeight] = useState(0)
 
   const load = useCallback(async () => {
     const [d, t] = await Promise.all([api.listDeposits(), api.listTransactions()])
@@ -98,6 +101,26 @@ export default function Notifications() {
 
   const unreadCount = allEvents.filter((e) => !readIds.has(e.id)).length
 
+  useLayoutEffect(() => {
+    const el = topChromeRef.current
+    if (!el) return undefined
+
+    const update = () => setTopChromeHeight(el.getBoundingClientRect().height)
+    update()
+
+    const mq = window.matchMedia('(max-width: 1023px)')
+    const onMq = () => update()
+    mq.addEventListener('change', onMq)
+
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+
+    return () => {
+      mq.removeEventListener('change', onMq)
+      ro.disconnect()
+    }
+  }, [loading, filter, unreadCount])
+
   const markAllRead = () => {
     setReadIds(() => {
       const next = new Set(allEvents.map((e) => e.id))
@@ -123,112 +146,135 @@ export default function Notifications() {
   }
 
   return (
-    <div className="animate-fade-in mx-auto max-w-2xl">
-      <ScreenHeader
-        title="Notifications"
-        subtitle={unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
-        back="/app"
-        right={
-          unreadCount > 0 ? (
-            <button
-              onClick={markAllRead}
-              className="press rounded-full border border-line bg-surface px-3.5 py-1.5 text-xs font-semibold text-ink-soft shadow-card transition-colors hover:text-ink"
-            >
-              Mark all read
-            </button>
-          ) : null
-        }
-      />
+    <div className="mx-auto flex min-h-0 w-full min-w-0 max-w-2xl flex-1 flex-col overflow-hidden">
+      {/* Fixed top chrome on mobile: header + summary + filters */}
+      <div
+        ref={topChromeRef}
+        className="page-top-chrome page-top-chrome-dark z-40 shrink-0 max-lg:fixed max-lg:inset-x-0 max-lg:top-0 max-lg:px-5 max-lg:pb-3 max-lg:pt-[env(safe-area-inset-top,0px)] lg:static lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-0 lg:backdrop-blur-none"
+      >
+        <ScreenHeader
+          embedded
+          inverse
+          title="Notifications"
+          subtitle={unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+          back="/app"
+          right={
+            unreadCount > 0 ? (
+              <button
+                onClick={markAllRead}
+                className="press whitespace-nowrap rounded-full border border-neutral-600 bg-neutral-800 px-2.5 py-1 text-[11px] font-semibold leading-none text-neutral-200 shadow-card transition-colors hover:text-white lg:border-line lg:bg-surface lg:px-3 lg:py-1.5 lg:text-ink-soft lg:text-xs lg:hover:text-ink"
+              >
+                <span className="lg:hidden">Mark read</span>
+                <span className="hidden lg:inline">Mark all read</span>
+              </button>
+            ) : null
+          }
+        />
 
-      {/* In / out summary */}
-      <div className="mb-5 grid grid-cols-2 gap-3">
-        <div className="card flex items-center gap-3 p-4">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-500/12 text-accent-600 dark:text-accent-300">
-            <Icon name="arrowDownLeft" size={18} />
-          </span>
-          <div className="min-w-0">
-            <p className="text-xs text-ink-muted">Total in</p>
-            <p className="truncate text-base font-bold text-ink">{mask(formatKes(totalIn))}</p>
-          </div>
-        </div>
-        <div className="card flex items-center gap-3 p-4">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-500/12 text-orange-600 dark:text-orange-300">
-            <Icon name="arrowUpRight" size={18} />
-          </span>
-          <div className="min-w-0">
-            <p className="text-xs text-ink-muted">Total paid out</p>
-            <p className="truncate text-base font-bold text-ink">{mask(formatKes(totalOut))}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="mb-4 flex gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f.id}
-            onClick={() => setFilter(f.id)}
-            className={`chip press px-4 py-2 ${
-              filter === f.id ? 'bg-orange-500 text-white' : 'border border-line bg-surface text-ink-soft shadow-card'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-
-      {events.length === 0 ? (
-        <EmptyState icon="bell" title="Nothing here yet" subtitle="Deposits and payouts will appear here in detail." />
-      ) : (
-        <div className="space-y-5">
-          {grouped.map(([day, list]) => (
-            <div key={day}>
-              <p className="mb-2 px-1 text-xs font-bold uppercase tracking-wide text-ink-muted">{formatDateShort(day)}</p>
-              <div className="card divide-y divide-line">
-                {list.map((e) => (
-                  <EventRow key={e.id} e={e} mask={mask} unread={!readIds.has(e.id)} onClick={() => openEvent(e)} />
-                ))}
-              </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 lg:mt-5 lg:gap-3">
+          <div className="card flex min-w-0 items-center gap-2.5 p-3 lg:gap-3 lg:p-4">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent-500/12 text-accent-600 dark:text-accent-300 lg:h-10 lg:w-10">
+              <Icon name="arrowDownLeft" size={17} className="lg:hidden" />
+              <Icon name="arrowDownLeft" size={18} className="hidden lg:block" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] text-ink-muted lg:text-xs">Total in</p>
+              <p className="truncate text-sm font-bold text-ink lg:text-base">{mask(formatKes(totalIn))}</p>
             </div>
+          </div>
+          <div className="card flex min-w-0 items-center gap-2.5 p-3 lg:gap-3 lg:p-4">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-orange-500/12 text-orange-600 dark:text-orange-300 lg:h-10 lg:w-10">
+              <Icon name="arrowUpRight" size={17} className="lg:hidden" />
+              <Icon name="arrowUpRight" size={18} className="hidden lg:block" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] text-ink-muted lg:text-xs">Total paid out</p>
+              <p className="truncate text-sm font-bold text-ink lg:text-base">{mask(formatKes(totalOut))}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="scroll-area mt-3 flex gap-2 overflow-x-auto pb-0.5 lg:mt-4 lg:overflow-visible">
+          {FILTERS.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={`chip press shrink-0 whitespace-nowrap px-3.5 py-1.5 lg:px-4 lg:py-2 ${
+                filter === f.id ? 'bg-orange-500 text-white' : 'border border-line bg-surface text-ink-soft shadow-card'
+              }`}
+            >
+              {f.label}
+            </button>
           ))}
         </div>
-      )}
+      </div>
+
+      {/* Spacer matching fixed chrome height on mobile */}
+      <div className="shrink-0 lg:hidden" style={{ height: topChromeHeight || undefined }} aria-hidden />
+
+      <div className="scroll-area min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pb-[calc(6rem+env(safe-area-inset-bottom,0px))] pt-4 lg:pb-0 lg:pt-5">
+        {events.length === 0 ? (
+          <EmptyState icon="bell" title="Nothing here yet" subtitle="Deposits and payouts will appear here in detail." />
+        ) : (
+          <div className="space-y-5">
+            {grouped.map(([day, list]) => (
+              <div key={day}>
+                <p className="mb-2 px-1 text-xs font-bold uppercase tracking-wide text-ink-muted">{formatDateShort(day)}</p>
+                <div className="card divide-y divide-line">
+                  {list.map((e) => (
+                    <EventRow key={e.id} e={e} mask={mask} unread={!readIds.has(e.id)} onClick={() => openEvent(e)} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {selected && <DetailModal e={selected} mask={mask} onClose={() => setSelected(null)} />}
     </div>
   )
 }
 
+const EVENT_STATUS = {
+  CONFIRMED: { label: 'Confirmed', cls: 'text-accent-600 dark:text-accent-300' },
+  SUCCESS: { label: 'Sent', cls: 'text-accent-600 dark:text-accent-300' },
+  PENDING: { label: 'Pending', cls: 'text-amber-600 dark:text-amber-400' },
+  PENDING_B2C_CONFIRM: { label: 'Sending…', cls: 'text-amber-600 dark:text-amber-400' },
+  FAILED: { label: 'Failed', cls: 'text-rose-500' },
+}
+
 function EventRow({ e, mask, unread, onClick }) {
   const isIn = e.kind === 'IN'
   const time = formatTime12(new Date(e.when).toTimeString().slice(0, 5))
+  const st = EVENT_STATUS[e.status] || EVENT_STATUS.PENDING
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`press flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-surface-soft ${
+      className={`press flex w-full min-w-0 items-center gap-2.5 p-3 text-left transition-colors hover:bg-surface-soft lg:gap-3 lg:p-4 ${
         unread ? 'bg-orange-500/[0.04]' : ''
       }`}
     >
       <span
-        className={`relative grid h-11 w-11 shrink-0 place-items-center rounded-full ${
+        className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-full ${
           isIn
             ? 'bg-accent-500/12 text-accent-600 dark:text-accent-300'
             : 'bg-orange-500/12 text-orange-600 dark:text-orange-300'
         }`}
       >
-        <Icon name={isIn ? 'arrowDownLeft' : 'arrowUpRight'} size={19} />
-        {unread && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface bg-orange-500" />}
+        <Icon name={isIn ? 'arrowDownLeft' : 'arrowUpRight'} size={17} />
+        {unread && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border-2 border-surface bg-orange-500" />}
       </span>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 overflow-hidden">
         <p className={`truncate text-sm text-ink ${unread ? 'font-bold' : 'font-semibold'}`}>{e.title}</p>
         <p className="truncate text-xs text-ink-muted">
           {time} · {e.detail}
         </p>
       </div>
       <div className="shrink-0 text-right">
-        <p className="text-sm font-bold text-ink">{mask(formatKes(e.amount))}</p>
-        <StatusBadge status={e.status} />
+        <p className="whitespace-nowrap text-sm font-bold tabular-nums text-ink">{mask(formatKes(e.amount))}</p>
+        <p className={`whitespace-nowrap text-[11px] font-medium ${st.cls}`}>{st.label}</p>
       </div>
     </button>
   )
@@ -240,15 +286,26 @@ function DetailModal({ e, mask, onClose }) {
   useEffect(() => {
     const onKey = (ev) => ev.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
   }, [onClose])
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="notif-detail-title"
     >
-      <div className="card w-full max-w-sm animate-scale-in p-6" onClick={(ev) => ev.stopPropagation()}>
+      <div
+        className="card mx-auto w-full max-w-sm animate-scale-in p-6 shadow-float"
+        onClick={(ev) => ev.stopPropagation()}
+      >
         <div className="flex items-start justify-between">
           <span
             className={`grid h-12 w-12 place-items-center rounded-2xl ${
@@ -260,6 +317,7 @@ function DetailModal({ e, mask, onClose }) {
             <Icon name={isIn ? 'arrowDownLeft' : 'arrowUpRight'} size={24} />
           </span>
           <button
+            type="button"
             onClick={onClose}
             aria-label="Close"
             className="press grid h-8 w-8 place-items-center rounded-full text-ink-muted transition-colors hover:bg-surface-soft hover:text-ink"
@@ -268,7 +326,9 @@ function DetailModal({ e, mask, onClose }) {
           </button>
         </div>
 
-        <h2 className="mt-4 text-lg font-extrabold text-ink">{e.title}</h2>
+        <h2 id="notif-detail-title" className="mt-4 text-lg font-extrabold text-ink">
+          {e.title}
+        </h2>
         <p className="text-2xl font-extrabold tracking-tight text-ink">{mask(formatKes(e.amount))}</p>
 
         <dl className="mt-5 space-y-3 border-t border-line pt-4 text-sm">
@@ -279,7 +339,8 @@ function DetailModal({ e, mask, onClose }) {
           <Detail label="Reference" value={e.reference || '—'} />
         </dl>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

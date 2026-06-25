@@ -48,14 +48,15 @@ export default function Dashboard() {
   const isEmpty = data.schedules.length === 0
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between py-4">
-        <Link to="/app/profile" className="press flex items-center gap-3">
-          <Avatar src={user?.avatar_url} name={user?.name} size={40} />
+      <header className="flex shrink-0 items-center justify-between pb-2 pt-[max(0.5rem,env(safe-area-inset-top,0px))] lg:py-4 lg:pt-4">
+        <Link to="/app/profile" className="press flex items-center gap-2.5 lg:gap-3">
+          <Avatar src={user?.avatar_url} name={user?.name} size={36} className="lg:hidden" />
+          <Avatar src={user?.avatar_url} name={user?.name} size={40} className="hidden lg:block" />
           <div>
-            <p className="text-xs text-ink-muted">Welcome back</p>
-            <p className="text-base font-bold leading-tight text-ink">{firstName}</p>
+            <p className="text-[11px] text-ink-muted lg:text-xs">Welcome back</p>
+            <p className="text-sm font-bold leading-tight text-ink lg:text-base">{firstName}</p>
           </div>
         </Link>
         <div className="flex items-center gap-2">
@@ -78,8 +79,8 @@ export default function Dashboard() {
 
       {!user?.mpesa_number && (
         <Link
-          to="/app/settings"
-          className="press mb-5 flex items-center gap-3 rounded-2xl border border-orange-500/30 bg-orange-500/10 p-4"
+          to="/app/profile"
+          className="press mb-3 flex shrink-0 items-center gap-3 rounded-2xl border border-orange-500/30 bg-orange-500/10 p-3 lg:mb-5 lg:p-4"
         >
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-500 text-white">
             <Icon name="phone" size={18} />
@@ -92,9 +93,10 @@ export default function Dashboard() {
         </Link>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="scroll-area max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto max-lg:pb-1">
+        <div className="grid gap-3 max-lg:flex max-lg:flex-col lg:grid-cols-3 lg:gap-5">
         {/* Locked balance hero */}
-        <section className="bg-brand-rich relative overflow-hidden rounded-3xl p-5 text-white shadow-glow lg:col-span-2 lg:p-8">
+        <section className="bg-brand-rich relative shrink-0 overflow-hidden rounded-3xl p-3.5 text-white shadow-glow lg:col-span-2 lg:p-5">
           {/* Decorative depth */}
           <div aria-hidden className="pointer-events-none absolute inset-0">
             <div className="absolute -right-12 -top-20 h-56 w-56 rounded-full bg-white/20 blur-2xl" />
@@ -105,60 +107,64 @@ export default function Dashboard() {
           </div>
           <div className="relative">
             {/* Top row: label + active count */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-orange-100">Total locked balance</p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-orange-100 lg:text-xs">Total locked balance</p>
                 <button
                   onClick={toggle}
-                  className="press grid h-6 w-6 place-items-center rounded-full bg-white/15 text-orange-50 transition hover:bg-white/25"
+                  className="press grid h-5 w-5 place-items-center rounded-full bg-white/15 text-orange-50 transition hover:bg-white/25 lg:h-6 lg:w-6"
                   aria-label={hidden ? 'Show balance' : 'Hide balance'}
                   aria-pressed={hidden}
                 >
-                  <Icon name={hidden ? 'eyeOff' : 'eye'} size={13} />
+                  <Icon name={hidden ? 'eyeOff' : 'eye'} size={12} className="lg:hidden" />
+                  <Icon name={hidden ? 'eyeOff' : 'eye'} size={13} className="hidden lg:block" />
                 </button>
               </div>
-              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold">
-                <Icon name="lockClosed" size={13} />
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold lg:px-3 lg:py-1 lg:text-xs">
+                <Icon name="lockClosed" size={12} className="lg:hidden" />
+                <Icon name="lockClosed" size={13} className="hidden lg:block" />
                 {active.length} active
               </span>
             </div>
 
             {/* Balance + gauge */}
-            <div className="mt-2 flex items-center justify-between gap-4">
-              <p className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">{mask(formatKes(data.totalLocked))}</p>
+            <div className="mt-1 flex items-center justify-between gap-2 lg:gap-3">
+              <p className="text-xl font-bold leading-none tracking-tight sm:text-2xl lg:text-3xl">{mask(formatKes(data.totalLocked))}</p>
               <Gauge
                 value={todayDone}
                 max={todayTotal || 1}
-                size={96}
-                stroke={9}
+                size={64}
+                stroke={7}
                 center={
                   todayTotal > 0 ? (
                     <div className="text-white">
-                      <p className="text-xl font-bold leading-none">
+                      <p className="text-lg font-bold leading-none lg:text-xl">
                         {todayDone}
-                        <span className="text-sm font-semibold text-orange-100">/{todayTotal}</span>
+                        <span className="text-xs font-semibold text-orange-100 lg:text-sm">/{todayTotal}</span>
                       </p>
-                      <p className="mt-1 text-[9px] font-medium uppercase tracking-wide text-orange-100">today</p>
+                      <p className="mt-0.5 text-[8px] font-medium uppercase tracking-wide text-orange-100 lg:text-[9px]">today</p>
                     </div>
                   ) : (
                     <div className="text-white">
-                      <Icon name="check" size={22} className="mx-auto" />
-                      <p className="mt-0.5 text-[9px] font-medium uppercase tracking-wide text-orange-100">clear</p>
+                      <Icon name="check" size={18} className="mx-auto lg:hidden" />
+                      <Icon name="check" size={20} className="mx-auto hidden lg:block" />
+                      <p className="mt-0.5 text-[8px] font-medium uppercase tracking-wide text-orange-100 lg:text-[9px]">clear</p>
                     </div>
                   )
                 }
               />
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-black/20 px-3 py-1.5 text-xs font-semibold text-white">
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 lg:mt-2 lg:gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-black/20 px-2 py-0.5 text-[10px] font-semibold text-white lg:px-2.5 lg:py-1 lg:text-[11px]">
                 No withdrawals
               </span>
               <Link
                 to="/app/new"
-                className="press inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-orange-600 shadow-sm transition hover:bg-orange-50"
+                className="press inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-orange-600 shadow-sm transition hover:bg-orange-50 lg:gap-1.5 lg:px-3 lg:py-2 lg:text-xs"
               >
-                <Icon name="rocket" size={17} strokeWidth={2.2} />
+                <Icon name="rocket" size={14} strokeWidth={2.2} className="lg:hidden" />
+                <Icon name="rocket" size={15} strokeWidth={2.2} className="hidden lg:block" />
                 New schedule
               </Link>
             </div>
@@ -166,68 +172,72 @@ export default function Dashboard() {
         </section>
 
         {/* Upcoming sends */}
-        <section className="lg:col-span-1">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-ink-muted">Upcoming sends</h2>
+        <section className="flex shrink-0 flex-col lg:col-span-1">
+          <div className="mb-2 flex shrink-0 items-center justify-between lg:mb-3">
+            <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted lg:text-sm">Upcoming sends</h2>
             <Link to="/app/history" className="text-xs font-semibold text-orange-600 dark:text-orange-400">
               View all
             </Link>
           </div>
           {(data.upcoming?.length ?? 0) === 0 ? (
-            <div className="card flex min-h-[120px] flex-col items-center justify-center gap-2 p-5 text-center">
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-accent-500/12 text-accent-600 dark:text-accent-300">
-                <Icon name="check" size={20} />
+            <div className="card flex flex-col items-center justify-center gap-2 p-4 text-center lg:min-h-[120px] lg:flex-1">
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-accent-500/12 text-accent-600 dark:text-accent-300 lg:h-10 lg:w-10">
+                <Icon name="check" size={18} className="lg:hidden" />
+                <Icon name="check" size={20} className="hidden lg:block" />
               </span>
               <p className="text-sm text-ink-muted">No upcoming sends.</p>
             </div>
           ) : (
-            <div className="card px-2 py-1">
-              <div className={data.upcoming.length > 5 ? 'scroll-area max-h-[20rem] overflow-y-auto pr-1' : ''}>
-                <ul className="stagger divide-y divide-line">
-                  {data.upcoming.map((t, i) => (
-                    <SendRow key={t.id} t={t} highlight={i === 0} />
-                  ))}
-                </ul>
-              </div>
+            <div className="card overflow-hidden px-2 py-1">
+              <ul className="scroll-area stagger divide-y divide-line overflow-y-auto max-h-[calc(3*3.5rem)] pr-0.5">
+                {data.upcoming.map((t, i) => (
+                  <SendRow key={t.id} t={t} highlight={i === 0} compact />
+                ))}
+              </ul>
             </div>
           )}
         </section>
-      </div>
+        </div>
 
-      {/* Recycle nudge — only when a completed schedule can be re-run */}
-      {recyclable && (
-        <Link
-          to={`/app/recycle/${recyclable.id}`}
-          className="press mt-5 flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 shadow-card"
-        >
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-500/12 text-accent-600 dark:text-accent-300">
-            <Icon name="recycle" size={18} />
-          </span>
-          <div className="flex-1">
-            <p className="font-bold text-ink">Recycle a completed schedule</p>
-            <p className="text-xs text-ink-muted">Re-run “{recyclable.name}” with the same setup.</p>
-          </div>
-          <Icon name="arrowRight" size={20} className="shrink-0 text-ink-muted" />
-        </Link>
-      )}
-
-      {/* Locked-by-schedule chart */}
-      {active.length > 0 && (
-        <section className="card mt-5 p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold uppercase tracking-wide text-ink-muted">Locked by schedule</h2>
-              <p className="mt-0.5 text-xs text-ink-muted">Distribution of your committed balance</p>
+        {/* Locked by schedule — visible on mobile + desktop */}
+        {active.length > 0 && (
+          <section className="card mt-3 shrink-0 p-3.5 lg:mt-5 lg:p-5">
+            <div className="mb-3 flex items-center justify-between gap-2 lg:mb-4">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted lg:text-sm">Locked by schedule</h2>
+                <p className="mt-0.5 text-[11px] text-ink-muted lg:text-xs">Distribution of your committed balance</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-orange-500/10 px-2.5 py-1 text-[11px] font-semibold text-orange-600 dark:text-orange-300 lg:px-3 lg:text-xs">
+                {mask(formatKes(data.totalLocked))}
+              </span>
             </div>
-            <span className="rounded-full bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-600 dark:text-orange-300">
-              {mask(formatKes(data.totalLocked))}
-            </span>
-          </div>
-          <MiniBars data={bars} height={120} />
-        </section>
-      )}
+            <MiniBars data={bars} height={90} />
+          </section>
+        )}
 
-      {isEmpty && <GetStarted />}
+        {/* Recycle nudge — desktop only */}
+        {recyclable && (
+          <Link
+            to={`/app/recycle/${recyclable.id}`}
+            className="press mt-5 hidden shrink-0 items-center gap-3 rounded-2xl border border-line bg-surface p-4 shadow-card lg:flex"
+          >
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-500/12 text-accent-600 dark:text-accent-300">
+              <Icon name="recycle" size={18} />
+            </span>
+            <div className="flex-1">
+              <p className="font-bold text-ink">Recycle a completed schedule</p>
+              <p className="text-xs text-ink-muted">Re-run “{recyclable.name}” with the same setup.</p>
+            </div>
+            <Icon name="arrowRight" size={20} className="shrink-0 text-ink-muted" />
+          </Link>
+        )}
+
+        {isEmpty && (
+          <div className="hidden lg:block">
+            <GetStarted />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -239,13 +249,15 @@ const SEND_STATUS = {
   PENDING_B2C_CONFIRM: { label: 'Sending…', cls: 'text-amber-600 dark:text-amber-400' },
 }
 
-function SendRow({ t, highlight }) {
+function SendRow({ t, highlight, compact }) {
   const { mask } = useBalance()
   const st = SEND_STATUS[t.status] || SEND_STATUS.PENDING
   return (
-    <li className="flex items-center gap-3 px-2.5 py-3">
+    <li className={`flex items-center gap-2.5 text-left lg:gap-3 ${compact ? 'px-2 py-2.5' : 'px-2.5 py-3'}`}>
       <span
-        className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${
+        className={`grid shrink-0 place-items-center rounded-full ${
+          compact ? 'h-9 w-9' : 'h-10 w-10'
+        } ${
           t.status === 'SUCCESS'
             ? 'bg-accent-500/12 text-accent-600 dark:text-accent-300'
             : t.status === 'FAILED'
@@ -255,7 +267,7 @@ function SendRow({ t, highlight }) {
                 : 'bg-surface-soft text-ink-muted'
         }`}
       >
-        <Icon name={t.status === 'SUCCESS' ? 'check' : 'arrowUpRight'} size={18} />
+        <Icon name={t.status === 'SUCCESS' ? 'check' : 'arrowUpRight'} size={compact ? 16 : 18} />
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-ink">{t.label || t.schedule_name}</p>
@@ -280,19 +292,19 @@ const STEPS = [
 
 function GetStarted() {
   return (
-    <section className="card mt-8 p-6 lg:p-8">
+    <section className="card mt-0 flex min-h-0 flex-1 flex-col justify-center p-4 lg:mt-8 lg:block lg:p-8">
       <div>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-orange-600 dark:text-orange-300">
           <Icon name="bolt" size={13} /> Get started
         </span>
-        <h2 className="mt-3 text-xl font-extrabold tracking-tight text-ink lg:text-2xl">
+        <h2 className="mt-2 text-lg font-extrabold tracking-tight text-ink lg:mt-3 lg:text-2xl">
           Lock your first commitment
         </h2>
-        <p className="mt-1.5 max-w-md text-sm text-ink-muted">
-          Set money aside and let it return to your own M-Pesa on a schedule you control. Three quick steps:
+        <p className="mt-1 max-w-md text-sm text-ink-muted">
+          Set money aside and let it return to your own M-Pesa on a schedule you control.
         </p>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        <div className="mt-4 hidden gap-3 sm:grid-cols-3 lg:grid">
           {STEPS.map((s, i) => (
             <div key={s.title} className="rounded-2xl border border-line bg-surface-soft/60 p-4">
               <div className="flex items-center gap-2">
@@ -311,7 +323,7 @@ function GetStarted() {
 
         <Link
           to="/app/new"
-          className="press mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm font-bold text-white hover:bg-orange-600 sm:w-auto"
+          className="press mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm font-bold text-white hover:bg-orange-600 sm:w-auto lg:mt-6"
         >
           <Icon name="rocket" size={18} strokeWidth={2.2} />
           Build a schedule

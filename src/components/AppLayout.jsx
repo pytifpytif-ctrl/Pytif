@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Avatar, Logo, ThemeToggle } from './ui.jsx'
 import { Icon } from './icons.jsx'
@@ -13,6 +14,29 @@ export default function AppLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const path = location.pathname
+  const isHome = path === '/app'
+  const isNotifications = path === '/app/notifications'
+  const isAnalytics = path === '/app/analytics'
+  const mobileFixed = isHome || isNotifications || isAnalytics
+  const scrollUnderNav = isNotifications
+  const lockPageScroll = isHome || isAnalytics
+
+  useEffect(() => {
+    if (!lockPageScroll) return undefined
+    const mq = window.matchMedia('(max-width: 1023px)')
+    const apply = () => {
+      document.documentElement.classList.toggle('home-no-scroll', mq.matches)
+      document.body.classList.toggle('home-no-scroll', mq.matches)
+    }
+    apply()
+    mq.addEventListener('change', apply)
+    return () => {
+      mq.removeEventListener('change', apply)
+      document.documentElement.classList.remove('home-no-scroll')
+      document.body.classList.remove('home-no-scroll')
+    }
+  }, [lockPageScroll])
 
   const signOut = async () => {
     await logout()
@@ -73,8 +97,21 @@ export default function AppLayout() {
 
       {/* Main content */}
       <div className="flex min-h-screen flex-1 flex-col lg:pl-64">
-        <main key={location.pathname} className="flex-1 animate-fade-in px-5 pb-28 pt-2 lg:px-10 lg:pb-12 lg:pt-8">
-          <div className="mx-auto w-full max-w-5xl">
+        <main
+          key={location.pathname}
+          className={`flex-1 animate-fade-in px-5 max-lg:pt-0 lg:px-10 lg:pb-12 lg:pt-8 ${
+            mobileFixed
+              ? `max-lg:flex max-lg:h-dvh max-lg:max-h-dvh max-lg:flex-col max-lg:overflow-hidden ${
+                  scrollUnderNav ? 'max-lg:pb-0' : 'max-lg:pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]'
+                }`
+              : 'pb-28'
+          }`}
+        >
+          <div
+            className={`mx-auto w-full max-w-5xl ${
+              mobileFixed ? 'max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col' : ''
+            }`}
+          >
             <Outlet />
           </div>
         </main>

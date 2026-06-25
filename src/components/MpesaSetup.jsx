@@ -85,8 +85,12 @@ export default function MpesaSetup({ onDone, onCancel }) {
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
           />
         </Field>
-        <button type="submit" className="btn-primary w-full" disabled={busy}>
-          {busy ? <Spinner /> : 'Confirm number'}
+        <button
+          type="submit"
+          className="press inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-600 disabled:opacity-50"
+          disabled={busy}
+        >
+          {busy ? <Spinner className="h-4 w-4" /> : 'Confirm number'}
         </button>
         <div className="mt-3 flex items-center justify-between text-sm">
           <button type="button" onClick={() => setStep('number')} className="font-medium text-ink-muted">
@@ -116,14 +120,22 @@ export default function MpesaSetup({ onDone, onCancel }) {
           onChange={(e) => setMpesaNumber(e.target.value)}
         />
       </Field>
-      <div className="flex gap-3">
+      <div className="flex items-center gap-2">
         {onCancel && (
-          <button type="button" onClick={onCancel} className="btn-ghost flex-1">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="press shrink-0 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink-soft transition-colors hover:bg-surface-soft"
+          >
             Cancel
           </button>
         )}
-        <button type="submit" className="btn-primary flex-1" disabled={busy}>
-          {busy ? <Spinner /> : 'Send confirmation code'}
+        <button
+          type="submit"
+          className="press inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-orange-600 disabled:opacity-50"
+          disabled={busy}
+        >
+          {busy ? <Spinner className="h-4 w-4" /> : 'Send code'}
         </button>
       </div>
     </form>

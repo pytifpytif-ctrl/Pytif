@@ -39,7 +39,7 @@ export default function Settings() {
 
   return (
     <div className="animate-fade-in mx-auto max-w-2xl">
-      <ScreenHeader title="Profile" subtitle="Manage your account and payout number" />
+      <ScreenHeader inverse title="Profile" subtitle="Manage your account and payout number" />
 
       <div className="space-y-6">
         {/* Profile identity */}
@@ -146,13 +146,13 @@ export default function Settings() {
         {/* Sign out */}
         <button
           onClick={signOut}
-          className="press flex w-full items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-left transition-colors hover:bg-rose-100 dark:border-rose-500/30 dark:bg-rose-500/10 dark:hover:bg-rose-500/20"
+          className="press inline-flex w-full items-center gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-left transition-colors hover:bg-rose-100 dark:border-rose-500/30 dark:bg-rose-500/10 dark:hover:bg-rose-500/20"
         >
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-rose-500/15 text-rose-500">
-            <Icon name="logout" size={18} />
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-rose-500/15 text-rose-500">
+            <Icon name="logout" size={14} />
           </span>
-          <span className="flex-1 font-semibold text-rose-600 dark:text-rose-300">Sign out</span>
-          <Icon name="arrowRight" size={18} className="text-rose-400" />
+          <span className="flex-1 text-sm font-semibold text-rose-600 dark:text-rose-300">Sign out</span>
+          <Icon name="arrowRight" size={14} className="text-rose-400" />
         </button>
 
         <p className="pb-2 text-center text-xs text-ink-muted">Pytif · Phase 1</p>

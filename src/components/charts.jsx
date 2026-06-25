@@ -73,6 +73,111 @@ export function MiniBars({ data = [], height = 120, accentIndex }) {
   )
 }
 
+/** Line + area chart with axes. data: [{ label, value }], tone: 'orange' | 'accent'. */
+export function DayChart({ data = [], height = 200, tone = 'orange', formatValue = (v) => String(v), fill = false }) {
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setReady(true))
+    return () => cancelAnimationFrame(id)
+  }, [data])
+
+  const colors =
+    tone === 'accent'
+      ? { stroke: '#00c896', fill: 'rgba(0,200,150,0.18)', dot: '#00a87e' }
+      : { stroke: '#f97316', fill: 'rgba(249,115,22,0.18)', dot: '#ea580c' }
+
+  const pad = { t: 16, r: 12, b: 32, l: 44 }
+  const w = 320
+  const h = height
+  const plotW = w - pad.l - pad.r
+  const plotH = h - pad.t - pad.b
+
+  const maxVal = Math.max(1, ...data.map((d) => d.value))
+  const yMax = niceCeil(maxVal)
+  const ticks = [0, yMax / 2, yMax].map((v) => Math.round(v))
+
+  const n = data.length
+  const xAt = (i) => pad.l + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW)
+  const yAt = (v) => pad.t + plotH - (v / yMax) * plotH
+
+  const points = data.map((d, i) => ({ x: xAt(i), y: yAt(d.value), ...d }))
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+  const areaPath =
+    points.length > 0
+      ? `${linePath} L ${points[points.length - 1].x} ${pad.t + plotH} L ${points[0].x} ${pad.t + plotH} Z`
+      : ''
+
+  return (
+    <div className={fill ? 'h-full min-h-[72px] w-full' : 'w-full'} style={fill ? undefined : { height: h + 4 }}>
+      <svg viewBox={`0 0 ${w} ${h}`} className="h-full w-full overflow-visible" preserveAspectRatio="none">
+        {ticks.map((tick) => {
+          const y = yAt(tick)
+          return (
+            <g key={tick}>
+              <line x1={pad.l} y1={y} x2={w - pad.r} y2={y} stroke="currentColor" className="text-line" strokeWidth="1" />
+              <text x={pad.l - 8} y={y + 4} textAnchor="end" className="fill-ink-muted" style={{ fontSize: 9 }}>
+                {formatValue(tick)}
+              </text>
+            </g>
+          )
+        })}
+
+        {areaPath && (
+          <path
+            d={areaPath}
+            fill={colors.fill}
+            style={{ opacity: ready ? 1 : 0, transition: 'opacity 0.6s ease' }}
+          />
+        )}
+        {linePath && (
+          <path
+            d={linePath}
+            fill="none"
+            stroke={colors.stroke}
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              strokeDasharray: ready ? 'none' : '1000',
+              strokeDashoffset: ready ? 0 : 1000,
+              transition: 'stroke-dashoffset 1s cubic-bezier(0.22,1,0.36,1)',
+            }}
+          />
+        )}
+
+        {points.map((p, i) => (
+          <g key={i}>
+            <circle
+              cx={p.x}
+              cy={p.y}
+              r={ready ? 4 : 0}
+              fill={colors.dot}
+              stroke="rgb(var(--surface))"
+              strokeWidth="2"
+              style={{ transition: `r 0.4s ease ${i * 80}ms` }}
+            />
+            <title>{`${p.label}: ${formatValue(p.value)}`}</title>
+          </g>
+        ))}
+
+        {points.map((p, i) => (
+          <text key={`x-${i}`} x={p.x} y={h - 8} textAnchor="middle" className="fill-ink-muted" style={{ fontSize: 9 }}>
+            {p.label}
+          </text>
+        ))}
+      </svg>
+    </div>
+  )
+}
+
+function niceCeil(n) {
+  if (n <= 0) return 1
+  const mag = Math.pow(10, Math.floor(Math.log10(n)))
+  const norm = n / mag
+  const nice = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10
+  return nice * mag
+}
+
 /** Segmented allocation bar. segments: [{ label, value, color }]. */
 export function SegmentBar({ segments = [] }) {
   const total = segments.reduce((s, x) => s + x.value, 0) || 1

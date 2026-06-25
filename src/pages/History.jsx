@@ -161,7 +161,7 @@ export default function History() {
 
   return (
     <div className="animate-fade-in mx-auto max-w-2xl pb-24">
-      <ScreenHeader title="History" subtitle={subtitle} back="/app" />
+      <ScreenHeader inverse title="History" subtitle={subtitle} back="/app" />
 
       {/* View tabs: Sends | Schedules */}
       <div className="mb-4 inline-flex rounded-full border border-line bg-surface-soft p-1">

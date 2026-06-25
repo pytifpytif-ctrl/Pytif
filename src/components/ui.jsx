@@ -1,18 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Icon } from './icons.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
-
-export function Logo({ size = 36, className = '' }) {
-  return (
-    <img
-      src="/Logo.png"
-      alt="Pytif"
-      style={{ height: size }}
-      className={`w-auto select-none ${className}`}
-      draggable={false}
-    />
-  )
-}
+export { Logo, LogoMark } from './Logo.jsx'
 
 export function Avatar({ src, name, size = 40, rounded = 'rounded-xl', className = '' }) {
   const initial = (name || 'U').charAt(0).toUpperCase()
@@ -121,29 +110,62 @@ export function GoogleButton({ onClick, disabled, label = 'Continue with Google'
   )
 }
 
-export function ScreenHeader({ title, subtitle, back, right }) {
-  return (
-    <header className="sticky top-0 z-20 -mx-5 mb-5 border-b border-line bg-app/85 px-5 py-4 backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-2 lg:backdrop-blur-none">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          {back && (
-            <Link
-              to={back}
-              className="press flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface text-ink shadow-card"
-              aria-label="Back"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </Link>
-          )}
-          <div>
-            <h1 className="text-lg font-bold leading-tight text-ink lg:text-2xl">{title}</h1>
-            {subtitle && <p className="text-sm text-ink-muted">{subtitle}</p>}
-          </div>
-        </div>
-        {right}
+export function ScreenHeader({ title, subtitle, back, right, embedded = false, inverse = false }) {
+  const backCls = inverse
+    ? 'border-neutral-700 bg-neutral-800 text-white lg:border-line lg:bg-surface lg:text-ink'
+    : 'border-line bg-surface text-ink'
+
+  const backBtn = back ? (
+    <Link
+      to={back}
+      className={`press flex h-9 w-9 shrink-0 items-center justify-center rounded-full border shadow-card ${backCls}`}
+      aria-label="Back"
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </Link>
+  ) : null
+
+  const mobileGrid = (
+    <div className={`flex items-center gap-2.5 lg:hidden ${embedded ? 'pt-1' : 'pt-2.5'}`}>
+      {backBtn}
+      <div className="min-w-0 flex-1">
+        <h1 className={`truncate text-lg font-bold leading-tight ${inverse ? 'text-white' : 'text-ink'}`}>{title}</h1>
+        {subtitle && (
+          <p className={`truncate text-sm ${inverse ? 'text-neutral-400' : 'text-ink-muted'}`}>{subtitle}</p>
+        )}
       </div>
+      {right && <div className="shrink-0">{right}</div>}
+    </div>
+  )
+
+  const desktopRow = (
+    <div className="hidden items-center justify-between gap-3 lg:flex">
+      <div className="flex min-w-0 items-center gap-3">
+        {backBtn}
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-bold leading-tight text-ink">{title}</h1>
+          {subtitle && <p className="truncate text-sm text-ink-muted">{subtitle}</p>}
+        </div>
+      </div>
+      {right}
+    </div>
+  )
+
+  if (embedded) {
+    return (
+      <header className="shrink-0">
+        {mobileGrid}
+        {desktopRow}
+      </header>
+    )
+  }
+
+  return (
+    <header className={`page-top-chrome sticky top-0 z-30 -mx-5 mb-4 mt-0 shrink-0 px-5 max-lg:pb-3 max-lg:pt-[env(safe-area-inset-top,0px)] lg:static lg:mx-0 lg:mb-5 lg:border-0 lg:bg-transparent lg:px-0 lg:py-2 lg:pt-2 lg:backdrop-blur-none ${inverse ? 'page-top-chrome-dark' : ''}`}>
+      {mobileGrid}
+      {desktopRow}
     </header>
   )
 }
