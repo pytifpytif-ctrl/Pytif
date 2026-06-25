@@ -16,6 +16,18 @@ Deno.serve(async (req) => {
     const user = await userFromRequest(req, supabase)
     if (!user) return json({ error: 'Unauthorized' }, 401)
 
+    // Ensure a profile row exists (the signup trigger can miss OAuth users).
+    // Insert-if-missing only — never overwrite an existing profile.
+    await supabase.from('users').upsert(
+      {
+        id: user.id,
+        name: user.user_metadata?.name || user.user_metadata?.full_name || 'Pytif user',
+        mpesa_number: user.email || user.id,
+        is_verified: false,
+      },
+      { onConflict: 'id', ignoreDuplicates: true },
+    )
+
     const { mpesaNumber } = await req.json()
     const phone = normalizePhone(mpesaNumber)
     if (!isValidPhone(phone)) return json({ error: 'Enter a valid Safaricom number, e.g. 0712345678' }, 400)
