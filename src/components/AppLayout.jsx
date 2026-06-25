@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Logo, ThemeToggle } from './ui.jsx'
+import { Avatar, Logo, ThemeToggle } from './ui.jsx'
 import { Icon } from './icons.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 
@@ -8,6 +8,23 @@ const tabs = [
   { to: '/app/history', label: 'History', icon: 'history' },
   { to: '/app/settings', label: 'Settings', icon: 'settings' },
 ]
+
+function MobileTab({ tab }) {
+  return (
+    <NavLink
+      to={tab.to}
+      end={tab.end}
+      className={({ isActive }) =>
+        `flex flex-1 flex-col items-center gap-1 rounded-2xl py-2 text-xs font-medium transition-colors ${
+          isActive ? 'text-orange-600 dark:text-orange-400' : 'text-ink-muted'
+        }`
+      }
+    >
+      <Icon name={tab.icon} size={22} />
+      {tab.label}
+    </NavLink>
+  )
+}
 
 export default function AppLayout() {
   const { user, logout } = useAuth()
@@ -48,9 +65,9 @@ export default function AppLayout() {
 
           <NavLink
             to="/app/new"
-            className="press mt-3 flex items-center justify-center gap-2 rounded-2xl bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white shadow-float transition hover:bg-brand-700"
+            className="press mt-3 flex items-center justify-center gap-2 rounded-2xl bg-orange-500 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-600"
           >
-            <Icon name="plus" size={18} strokeWidth={2.4} />
+            <Icon name="calendarPlus" size={18} strokeWidth={2.2} />
             New schedule
           </NavLink>
         </nav>
@@ -64,9 +81,7 @@ export default function AppLayout() {
             onClick={signOut}
             className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-soft"
           >
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-600 text-xs font-bold text-white">
-              {(user?.name || 'U').charAt(0).toUpperCase()}
-            </span>
+            <Avatar src={user?.avatar_url} name={user?.name} size={28} rounded="rounded-full" />
             <span className="flex-1 truncate text-left">{user?.name || 'Account'}</span>
             <Icon name="logout" size={18} />
           </button>
@@ -82,24 +97,24 @@ export default function AppLayout() {
         </main>
       </div>
 
-      {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md border-t border-line bg-surface/95 px-6 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden">
+      {/* Mobile bottom nav (Home · New · History · Settings) */}
+      <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md border-t border-line bg-surface/95 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden">
         <div className="flex items-center justify-around">
-          {tabs.map((t) => (
-            <NavLink
-              key={t.to}
-              to={t.to}
-              end={t.end}
-              className={({ isActive }) =>
-                `flex flex-1 flex-col items-center gap-1 rounded-2xl py-2 text-xs font-medium transition-colors ${
-                  isActive ? 'text-brand-600 dark:text-brand-300' : 'text-ink-muted'
-                }`
-              }
-            >
-              <Icon name={t.icon} size={22} />
-              {t.label}
-            </NavLink>
-          ))}
+          <MobileTab tab={tabs[0]} />
+
+          <NavLink
+            to="/app/new"
+            className="press flex flex-1 flex-col items-center gap-1"
+            aria-label="New schedule"
+          >
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-orange-500 text-white">
+              <Icon name="calendarPlus" size={18} strokeWidth={2.2} />
+            </span>
+            <span className="text-xs font-medium text-ink-muted">New</span>
+          </NavLink>
+
+          <MobileTab tab={tabs[1]} />
+          <MobileTab tab={tabs[2]} />
         </div>
       </nav>
     </div>

@@ -74,6 +74,12 @@ export function AuthProvider({ children }) {
     return u
   }, [])
 
+  const uploadAvatar = useCallback(async (file) => {
+    const u = await api.uploadAvatar(file)
+    setUser(u)
+    return u
+  }, [])
+
   const sendOtp = useCallback((payload) => api.sendOtp(payload), [])
 
   const verifyOtp = useCallback(async (payload) => {
@@ -95,6 +101,7 @@ export function AuthProvider({ children }) {
     seedDemo,
     signInWithGoogle,
     updateProfile,
+    uploadAvatar,
     sendOtp,
     verifyOtp,
     updatePassword,

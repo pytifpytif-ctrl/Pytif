@@ -3,9 +3,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { api } from '../lib/api.js'
 import { useScheduler } from '../hooks/useScheduler.js'
-import { Spinner, StatusBadge, ThemeToggle } from '../components/ui.jsx'
+import { Avatar, Spinner, StatusBadge, ThemeToggle } from '../components/ui.jsx'
 import { Icon } from '../components/icons.jsx'
-import { Gauge, MiniBars, QuickAction } from '../components/charts.jsx'
+import { Gauge, MiniBars } from '../components/charts.jsx'
 import { formatKes, formatTime12, formatPhone } from '../lib/format.js'
 
 export default function Dashboard() {
@@ -39,12 +39,10 @@ export default function Dashboard() {
   const now = Date.now()
 
   const firstName = (user?.name && user.name !== 'Pytif user' ? user.name.split(' ')[0] : '') || 'there'
-  const initial = (user?.name || 'U').charAt(0).toUpperCase()
 
   const todayTotal = data.upcomingToday.length
   const todayDone = data.upcomingToday.filter((t) => t.status === 'SUCCESS').length
   const recyclable = others.find((s) => s.status === 'COMPLETED')
-  const last4 = (user?.mpesa_number || '').replace(/\D/g, '').slice(-4)
 
   const bars = active.slice(0, 7).map((s) => ({ label: s.name.slice(0, 3), value: s.locked_balance }))
   const isEmpty = data.schedules.length === 0
@@ -53,15 +51,13 @@ export default function Dashboard() {
     <div className="animate-fade-in">
       {/* Header */}
       <header className="flex items-center justify-between py-4">
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-orange-500 text-sm font-bold text-white">
-            {initial}
-          </span>
+        <Link to="/app/settings" className="press flex items-center gap-3">
+          <Avatar src={user?.avatar_url} name={user?.name} size={40} />
           <div>
             <p className="text-xs text-ink-muted">Welcome back</p>
             <p className="text-base font-bold leading-tight text-ink">{firstName}</p>
           </div>
-        </div>
+        </Link>
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <button
@@ -95,23 +91,17 @@ export default function Dashboard() {
 
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Locked balance hero */}
-        <section className="relative overflow-hidden rounded-3xl bg-orange-500 p-6 text-white lg:col-span-2 lg:p-8">
-          <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+        <section className="relative overflow-hidden rounded-3xl bg-orange-500 p-5 text-white lg:col-span-2 lg:p-8">
+          <div className="relative flex items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-wide text-orange-100">Total locked balance</p>
-              <p className="mt-1.5 text-3xl font-extrabold tracking-tight lg:text-4xl">{formatKes(data.totalLocked)}</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">{formatKes(data.totalLocked)}</p>
 
-              <div className="mt-4 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold">
                   <Icon name="lockClosed" size={13} />
                   {active.length} active
                 </span>
-                {last4 && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold">
-                    <Icon name="phone" size={13} />
-                    •••• {last4}
-                  </span>
-                )}
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-black/20 px-3 py-1.5 text-xs font-semibold text-white">
                   No withdrawals
                 </span>
@@ -121,20 +111,21 @@ export default function Dashboard() {
             <Gauge
               value={todayDone}
               max={todayTotal || 1}
-              size={124}
+              size={96}
+              stroke={9}
               center={
                 todayTotal > 0 ? (
                   <div className="text-white">
-                    <p className="text-2xl font-extrabold leading-none">
+                    <p className="text-xl font-bold leading-none">
                       {todayDone}
-                      <span className="text-base font-semibold text-orange-100">/{todayTotal}</span>
+                      <span className="text-sm font-semibold text-orange-100">/{todayTotal}</span>
                     </p>
-                    <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-orange-100">sent today</p>
+                    <p className="mt-1 text-[9px] font-medium uppercase tracking-wide text-orange-100">today</p>
                   </div>
                 ) : (
                   <div className="text-white">
-                    <Icon name="check" size={26} className="mx-auto" />
-                    <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-orange-100">all clear</p>
+                    <Icon name="check" size={22} className="mx-auto" />
+                    <p className="mt-0.5 text-[9px] font-medium uppercase tracking-wide text-orange-100">clear</p>
                   </div>
                 )
               }
@@ -191,16 +182,22 @@ export default function Dashboard() {
         </section>
       </div>
 
-      {/* Quick actions */}
-      <div className="card mt-5 flex items-center justify-around gap-2 p-5 sm:justify-start sm:gap-12 sm:px-9">
-        <QuickAction icon="plus" label="New" to="/app/new" tone="flame" />
-        <QuickAction icon="history" label="History" to="/app/history" tone="violet" />
-        {recyclable ? (
-          <QuickAction icon="recycle" label="Recycle" to={`/app/recycle/${recyclable.id}`} tone="accent" />
-        ) : (
-          <QuickAction icon="lockClosed" label="New" to="/app/new" tone="accent" />
-        )}
-      </div>
+      {/* Recycle nudge — only when a completed schedule can be re-run */}
+      {recyclable && (
+        <Link
+          to={`/app/recycle/${recyclable.id}`}
+          className="press mt-5 flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 shadow-card"
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-500/12 text-accent-600 dark:text-accent-300">
+            <Icon name="recycle" size={18} />
+          </span>
+          <div className="flex-1">
+            <p className="font-bold text-ink">Recycle a completed schedule</p>
+            <p className="text-xs text-ink-muted">Re-run “{recyclable.name}” with the same setup.</p>
+          </div>
+          <Icon name="arrowRight" size={20} className="shrink-0 text-ink-muted" />
+        </Link>
+      )}
 
       {/* Locked-by-schedule chart */}
       {active.length > 0 && (

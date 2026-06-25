@@ -204,8 +204,31 @@ function publicUser(u) {
     email: u.email,
     mpesa_number: u.mpesa_number,
     is_verified: u.is_verified,
+    avatar_url: u.avatar_url || null,
     needs_onboarding: !/^0\d{9}$/.test(String(u.mpesa_number || '')),
   }
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(new Error('Could not read image.'))
+    reader.readAsDataURL(file)
+  })
+}
+
+async function uploadAvatar(file) {
+  await delay()
+  if (!file?.type?.startsWith('image/')) throw new Error('Please choose an image file.')
+  if (file.size > 5 * 1024 * 1024) throw new Error('Image must be under 5 MB.')
+  const db = loadDb()
+  const session = getSession()
+  if (!session) throw new Error('Not signed in')
+  const user = db.users.find((u) => u.id === session.userId)
+  user.avatar_url = await readFileAsDataUrl(file)
+  saveDb(db)
+  return publicUser(user)
 }
 
 // ---- Schedules ----
@@ -524,6 +547,7 @@ export const mockBackend = {
   currentUser,
   signInWithGoogle,
   updateProfile,
+  uploadAvatar,
   onAuthChange,
   sendOtp,
   verifyOtp,

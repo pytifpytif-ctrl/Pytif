@@ -91,7 +91,7 @@ async function currentUser() {
   const meta = data.user.user_metadata || {}
   const { data: profile } = await supabase
     .from('users')
-    .select('id,name,mpesa_number,is_verified')
+    .select('id,name,mpesa_number,is_verified,avatar_url')
     .eq('id', data.user.id)
     .maybeSingle()
 
@@ -105,10 +105,37 @@ async function currentUser() {
   return {
     ...base,
     name: base.name || meta.name || meta.full_name || 'Pytif user',
+    avatar_url: base.avatar_url || meta.avatar_url || meta.picture || null,
     email: data.user.email,
     provider: data.user.app_metadata?.provider || 'email',
     needs_onboarding: !isRealPhone(base.mpesa_number),
   }
+}
+
+/** Upload a profile picture to storage and save its URL on the profile. */
+async function uploadAvatar(file) {
+  const { data: auth } = await supabase.auth.getUser()
+  if (!auth.user) throw new Error('Not signed in')
+  if (!file) throw new Error('No file selected')
+  if (!file.type?.startsWith('image/')) throw new Error('Please choose an image file.')
+  if (file.size > 5 * 1024 * 1024) throw new Error('Image must be under 5 MB.')
+
+  const ext = (file.name?.split('.').pop() || 'png').toLowerCase()
+  const path = `${auth.user.id}/avatar.${ext}`
+
+  const { error: upErr } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, contentType: file.type, cacheControl: '3600' })
+  if (upErr) throw new Error(upErr.message)
+
+  const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path)
+  // Cache-bust so the new image shows immediately after re-upload.
+  const url = `${pub.publicUrl}?v=${Date.now()}`
+
+  const { error: updErr } = await supabase.from('users').update({ avatar_url: url }).eq('id', auth.user.id)
+  if (updErr) throw new Error(updErr.message)
+  await supabase.auth.updateUser({ data: { avatar_url: url } })
+  return currentUser()
 }
 
 async function signInWithGoogle() {
@@ -320,6 +347,7 @@ export const supabaseBackend = {
   currentUser,
   signInWithGoogle,
   updateProfile,
+  uploadAvatar,
   onAuthChange,
   sendOtp,
   verifyOtp,

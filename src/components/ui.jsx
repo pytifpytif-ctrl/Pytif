@@ -14,6 +14,22 @@ export function Logo({ size = 36, className = '' }) {
   )
 }
 
+export function Avatar({ src, name, size = 40, rounded = 'rounded-xl', className = '' }) {
+  const initial = (name || 'U').charAt(0).toUpperCase()
+  return (
+    <span
+      className={`grid shrink-0 place-items-center overflow-hidden bg-orange-500 font-bold text-white ${rounded} ${className}`}
+      style={{ width: size, height: size, fontSize: size * 0.4 }}
+    >
+      {src ? (
+        <img src={src} alt={name || 'Profile'} className="h-full w-full object-cover" draggable={false} />
+      ) : (
+        initial
+      )}
+    </span>
+  )
+}
+
 export function Spinner({ className = '' }) {
   return (
     <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" fill="none" width="20" height="20">
