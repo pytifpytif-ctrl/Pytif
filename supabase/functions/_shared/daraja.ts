@@ -12,18 +12,42 @@ function env(name: string): string {
   return v
 }
 
-/** OAuth access token (valid ~1 hour). */
-export async function getAccessToken(): Promise<string> {
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/** OAuth access token (valid ~1 hour). `force` skips any cached value. */
+export async function getAccessToken(force = false): Promise<string> {
+  if (!force && cachedToken && cachedToken.exp > Date.now()) return cachedToken.value
   const key = env('MPESA_CONSUMER_KEY')
   const secret = env('MPESA_CONSUMER_SECRET')
   const auth = btoa(`${key}:${secret}`)
-  const res = await fetch(`${BASE}/oauth/v1/generate?grant_type=client_credentials`, {
-    headers: { Authorization: `Basic ${auth}` },
-  })
-  if (!res.ok) throw new Error(`Daraja token error: ${res.status}`)
-  const data = await res.json()
-  return data.access_token
+
+  // Retry the token endpoint — the first call after a cold start can flake.
+  let lastErr = ''
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const res = await fetch(`${BASE}/oauth/v1/generate?grant_type=client_credentials`, {
+        headers: { Authorization: `Basic ${auth}` },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data?.access_token) {
+          // Cache a little under the ~1h validity.
+          cachedToken = { value: data.access_token, exp: Date.now() + 50 * 60 * 1000 }
+          return data.access_token
+        }
+        lastErr = JSON.stringify(data)
+      } else {
+        lastErr = `status ${res.status}`
+      }
+    } catch (e) {
+      lastErr = String(e)
+    }
+    await sleep(600 * (attempt + 1))
+  }
+  throw new Error(`Daraja token error: ${lastErr}`)
 }
+
+let cachedToken: { value: string; exp: number } | null = null
 
 function timestamp(): string {
   const d = new Date()
@@ -42,14 +66,13 @@ export function toMsisdn(phone: string): string {
   return p
 }
 
-/** Trigger an STK push to collect the deposit. */
-export async function stkPush(opts: {
+/** One STK push attempt with a given token. */
+async function stkPushOnce(token: string, opts: {
   amount: number
   phone: string
   accountReference: string
   description: string
 }) {
-  const token = await getAccessToken()
   const shortcode = env('MPESA_SHORTCODE')
   const passkey = env('MPESA_PASSKEY')
   const ts = timestamp()
@@ -72,7 +95,37 @@ export async function stkPush(opts: {
       TransactionDesc: opts.description.slice(0, 13),
     }),
   })
-  return await res.json()
+  return { ok: res.ok, status: res.status, body: await res.json().catch(() => ({})) }
+}
+
+/**
+ * Trigger an STK push to collect the deposit, retrying transient failures.
+ * Daraja (especially sandbox) frequently fails the first attempt — an expired
+ * token, a cold connection, or a generic 500 — and succeeds on a retry.
+ */
+export async function stkPush(opts: {
+  amount: number
+  phone: string
+  accountReference: string
+  description: string
+}) {
+  let lastErr = ''
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      // Force a fresh token on a retry in case the previous one was rejected.
+      const token = await getAccessToken(attempt > 0)
+      const { ok, status, body } = await stkPushOnce(token, opts)
+      // Success: Daraja accepted the request for processing.
+      if (ok && body?.ResponseCode === '0' && body?.CheckoutRequestID) return body
+      lastErr = body?.errorMessage || body?.ResponseDescription || `status ${status}`
+      // An invalid/expired token surfaces as 401/404.116 — drop the cache.
+      if (status === 401) cachedToken = null
+    } catch (e) {
+      lastErr = String(e)
+    }
+    if (attempt < 2) await sleep(800 * (attempt + 1))
+  }
+  throw new Error(`STK push failed after retries: ${lastErr}`)
 }
 
 /** Send money from the company shortcode to a customer (scheduled disbursement). */

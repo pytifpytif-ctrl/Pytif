@@ -216,7 +216,9 @@ async function createSchedule(payload) {
   const { data, error } = await supabase.functions.invoke('create-schedule', {
     body: payload,
   })
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(await readFnError(error, 'Could not create schedule.'))
+  if (data?.error) throw new Error(data.error)
+  if (data?.stkError) throw new Error("Couldn't start the M-Pesa prompt. Please try again in a moment.")
   return {
     scheduleId: data.scheduleId,
     depositId: data.depositId,

@@ -11,11 +11,15 @@ import {
   WEEKDAY_LABELS,
   DURATION_PRESETS,
   computeActiveDates,
+  generateTransactions,
   addDays,
   startOfToday,
   toDateKey,
   fromDateKey,
 } from '../lib/schedule.js'
+
+// Sends must be at least this far in the future (no past / too-soon sends).
+const MIN_LEAD_MS = 60 * 60 * 1000
 import { depositBreakdownForDates, feeFor } from '../lib/fees.js'
 import { formatKes, formatTime12, formatDateShort, formatPhone } from '../lib/format.js'
 
@@ -146,6 +150,21 @@ export default function ScheduleBuilder() {
   const breakdown = depositBreakdownForDates(resolved.dates, flatSlots, pattern)
   const dailyTotal = slots.reduce((sum, s) => sum + (Number(s.amount) || 0), 0)
 
+  // Earliest actual send (date + time). Used to block past / too-soon sends.
+  const earliestSend = useMemo(() => {
+    const txns = generateTransactions(resolved.dates, flatSlots, pattern)
+    return txns[0] ? new Date(txns[0].scheduled_for) : null
+  }, [resolved.dates, flatSlots, pattern])
+
+  const leadError =
+    earliestSend && earliestSend.getTime() < Date.now() + MIN_LEAD_MS
+      ? `Your earliest send is ${formatTime12(
+          earliestSend.toTimeString().slice(0, 5),
+        )} on ${formatDateShort(earliestSend)}, which is in the past or too soon. Sends must be at least 1 hour from now — pick a later time${
+          pattern === PATTERNS.EVERY_DAY ? '.' : ' or date.'
+        }`
+      : ''
+
   const next = () => {
     setError('')
     const err = validateStep(step)
@@ -172,13 +191,19 @@ export default function ScheduleBuilder() {
         const valid = slots.filter((x) => Number(x.amount) > 0)
         if (valid.length === 0) return 'Add at least one send with an amount.'
       }
+      if (leadError) return leadError
     }
     if (s === 'summary' && resolved.dates.length === 0) return 'This schedule has no active days. Adjust your dates.'
+    if (s === 'summary' && leadError) return leadError
     return ''
   }
 
   const lockMoney = async () => {
     setError('')
+    if (leadError) {
+      setError(leadError)
+      return
+    }
     setPhase('stk')
     try {
       const payload = {
@@ -354,9 +379,9 @@ export default function ScheduleBuilder() {
 
 function StepPattern({ name, setName, pattern, setPattern, isRecycle }) {
   const options = [
-    { id: PATTERNS.EVERY_DAY, title: 'Every day', desc: 'Same sends, every single day', icon: '🔁' },
-    { id: PATTERNS.SPECIFIC_DAYS, title: 'Specific days of the week', desc: 'Choose which weekdays', icon: '📆' },
-    { id: PATTERNS.CUSTOM_DATES, title: 'Custom dates', desc: 'Pick exact calendar dates', icon: '🎯' },
+    { id: PATTERNS.EVERY_DAY, title: 'Every day', desc: 'Same sends, every single day', icon: 'repeat' },
+    { id: PATTERNS.SPECIFIC_DAYS, title: 'Specific days of the week', desc: 'Choose which weekdays', icon: 'calendarDays' },
+    { id: PATTERNS.CUSTOM_DATES, title: 'Custom dates', desc: 'Pick exact calendar dates', icon: 'calendarCheck' },
   ]
   return (
     <div className="animate-fade-in">
@@ -379,20 +404,26 @@ function StepPattern({ name, setName, pattern, setPattern, isRecycle }) {
               key={o.id}
               onClick={() => setPattern(o.id)}
               className={`press flex w-full items-center gap-4 rounded-3xl border-2 p-4 text-left transition ${
-                active ? 'border-brand-600 bg-brand-500/10' : 'border-transparent bg-surface shadow-card'
+                active ? 'border-orange-500 bg-orange-500/10' : 'border-transparent bg-surface shadow-card'
               }`}
             >
-              <span className="text-3xl">{o.icon}</span>
+              <span
+                className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl transition ${
+                  active ? 'bg-orange-500 text-white' : 'bg-surface-soft text-ink-soft'
+                }`}
+              >
+                <Icon name={o.icon} size={20} />
+              </span>
               <span className="flex-1">
                 <span className="block font-bold text-ink">{o.title}</span>
                 <span className="block text-sm text-ink-muted">{o.desc}</span>
               </span>
               <span
-                className={`grid h-6 w-6 place-items-center rounded-full border-2 ${
-                  active ? 'border-brand-600 bg-brand-600 text-white' : 'border-line'
+                className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 ${
+                  active ? 'border-orange-500 bg-orange-500 text-white' : 'border-line'
                 }`}
               >
-                {active && '✓'}
+                {active && <Icon name="check" size={14} />}
               </span>
             </button>
           )
@@ -620,9 +651,10 @@ function StepDaySlots({ dayKeys, daySlots, setDaySlots, openTime }) {
                   {dayKeys.length > 1 && (
                     <button
                       onClick={copyToAll(key)}
-                      className="mt-3 w-full rounded-xl bg-brand-500/10 py-2.5 text-center text-sm font-semibold text-brand-600 transition active:scale-[0.99] dark:text-brand-300"
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500/10 py-2.5 text-center text-sm font-semibold text-orange-600 transition active:scale-[0.99] dark:text-orange-400"
                     >
-                      {copiedFrom === key ? 'Copied to all days ✓' : 'Copy this day to all days'}
+                      <Icon name={copiedFrom === key ? 'check' : 'copy'} size={15} />
+                      {copiedFrom === key ? 'Copied to all days' : 'Copy this day to all days'}
                     </button>
                   )}
                 </div>

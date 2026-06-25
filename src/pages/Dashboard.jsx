@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { api } from '../lib/api.js'
 import { useScheduler } from '../hooks/useScheduler.js'
-import { Avatar, Spinner, StatusBadge, ThemeToggle } from '../components/ui.jsx'
+import { Avatar, Spinner, ThemeToggle } from '../components/ui.jsx'
 import { Icon } from '../components/icons.jsx'
 import { Gauge, MiniBars } from '../components/charts.jsx'
 import { formatKes, formatTime12, formatPhone } from '../lib/format.js'
@@ -135,49 +135,29 @@ export default function Dashboard() {
 
         {/* Today's sends */}
         <section className="lg:col-span-1">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-muted">Today&apos;s sends</h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-ink-muted">Today&apos;s sends</h2>
+            <Link to="/app/history" className="text-xs font-semibold text-orange-600 dark:text-orange-400">
+              View all
+            </Link>
+          </div>
           {data.upcomingToday.length === 0 ? (
-            <div className="card flex h-[calc(100%-2rem)] min-h-[120px] flex-col items-center justify-center gap-2 p-5 text-center">
+            <div className="card flex min-h-[120px] flex-col items-center justify-center gap-2 p-5 text-center">
               <span className="grid h-10 w-10 place-items-center rounded-full bg-accent-500/12 text-accent-600 dark:text-accent-300">
                 <Icon name="check" size={20} />
               </span>
               <p className="text-sm text-ink-muted">No sends scheduled for today.</p>
             </div>
           ) : (
-            <ol className="stagger relative space-y-3 border-l-2 border-line pl-5">
-              {data.upcomingToday.map((t) => {
-                const due = new Date(t.scheduled_for).getTime()
-                const isNext = t.status === 'PENDING' && due >= now
-                return (
-                  <li key={t.id} className="relative">
-                    <span
-                      className={`absolute -left-[27px] top-1.5 h-3 w-3 rounded-full border-2 border-app ${
-                        t.status === 'SUCCESS'
-                          ? 'bg-accent-500'
-                          : t.status === 'FAILED'
-                            ? 'bg-rose-500'
-                            : isNext
-                              ? 'animate-pulse bg-orange-500'
-                              : 'bg-line'
-                      }`}
-                    />
-                    <div className="card flex items-center justify-between p-3.5">
-                      <div>
-                        <p className="text-sm font-semibold text-ink">
-                          {formatTime12(new Date(t.scheduled_for).toTimeString().slice(0, 5))}
-                          {t.label ? ` · ${t.label}` : ''}
-                        </p>
-                        <p className="text-xs text-ink-muted">{t.schedule_name}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-ink">{formatKes(t.amount)}</p>
-                        <StatusBadge status={t.status} />
-                      </div>
-                    </div>
-                  </li>
-                )
-              })}
-            </ol>
+            <div className="card px-2 py-1">
+              <div className={data.upcomingToday.length > 5 ? 'scroll-area max-h-[20rem] overflow-y-auto pr-1' : ''}>
+                <ul className="stagger divide-y divide-line">
+                  {data.upcomingToday.map((t) => (
+                    <SendRow key={t.id} t={t} now={now} />
+                  ))}
+                </ul>
+              </div>
+            </div>
           )}
         </section>
       </div>
@@ -225,10 +205,12 @@ export default function Dashboard() {
             {active.length === 0 ? (
               <GetStarted compact />
             ) : (
-              <div className="stagger grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {active.map((s) => (
-                  <ScheduleCard key={s.id} s={s} />
-                ))}
+              <div className={active.length > 3 ? 'scroll-area max-h-[17rem] overflow-y-auto pr-1' : ''}>
+                <div className="stagger grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {active.map((s) => (
+                    <ScheduleCard key={s.id} s={s} />
+                  ))}
+                </div>
               </div>
             )}
           </section>
@@ -236,10 +218,12 @@ export default function Dashboard() {
           {others.length > 0 && (
             <section className="mt-8">
               <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-muted">Completed &amp; paused</h2>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {others.map((s) => (
-                  <ScheduleCard key={s.id} s={s} muted />
-                ))}
+              <div className={others.length > 3 ? 'scroll-area max-h-[17rem] overflow-y-auto pr-1' : ''}>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {others.map((s) => (
+                    <ScheduleCard key={s.id} s={s} muted />
+                  ))}
+                </div>
               </div>
             </section>
           )}
@@ -250,6 +234,48 @@ export default function Dashboard() {
         Sending to {formatPhone(user?.mpesa_number)} · Phase 1
       </p>
     </div>
+  )
+}
+
+const SEND_STATUS = {
+  SUCCESS: { label: 'Sent', cls: 'text-accent-600 dark:text-accent-300' },
+  FAILED: { label: 'Failed', cls: 'text-rose-500' },
+  PENDING: { label: 'Pending', cls: 'text-ink-muted' },
+  PENDING_B2C_CONFIRM: { label: 'Sending…', cls: 'text-sky-600 dark:text-sky-300' },
+}
+
+function SendRow({ t, now }) {
+  const due = new Date(t.scheduled_for).getTime()
+  const isNext = t.status === 'PENDING' && due >= now
+  const st = SEND_STATUS[t.status] || SEND_STATUS.PENDING
+  const time = formatTime12(new Date(t.scheduled_for).toTimeString().slice(0, 5))
+  return (
+    <li className="flex items-center gap-3 px-2.5 py-3">
+      <span
+        className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${
+          t.status === 'SUCCESS'
+            ? 'bg-accent-500/12 text-accent-600 dark:text-accent-300'
+            : t.status === 'FAILED'
+              ? 'bg-rose-500/12 text-rose-500'
+              : isNext
+                ? 'bg-orange-500/12 text-orange-600 dark:text-orange-300'
+                : 'bg-surface-soft text-ink-muted'
+        }`}
+      >
+        <Icon name={t.status === 'SUCCESS' ? 'check' : 'arrowUpRight'} size={18} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-ink">{t.label || t.schedule_name}</p>
+        <p className="truncate text-xs text-ink-muted">
+          {time}
+          {t.label ? ` · ${t.schedule_name}` : ''}
+        </p>
+      </div>
+      <div className="shrink-0 text-right">
+        <p className="text-sm font-bold text-ink">{formatKes(t.amount)}</p>
+        <p className={`text-xs font-medium ${st.cls}`}>{st.label}</p>
+      </div>
+    </li>
   )
 }
 
@@ -306,23 +332,26 @@ function ScheduleCard({ s, muted }) {
   const completedDays = Math.max(0, (s.total_days || 0) - (s.remainingDays || 0))
   const pct = s.total_days ? Math.round((completedDays / s.total_days) * 100) : 0
   return (
-    <Link to={`/app/schedule/${s.id}`} className={`card hover-lift block h-full p-4 ${muted ? 'opacity-90' : ''}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span
-            className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${
-              s.status === 'ACTIVE'
-                ? 'bg-orange-500/12 text-orange-600 dark:text-orange-300'
-                : s.status === 'COMPLETED'
-                  ? 'bg-accent-500/12 text-accent-600 dark:text-accent-300'
-                  : 'bg-surface-soft text-ink-muted'
-            }`}
-          >
-            <Icon name="wallet" size={18} />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate font-bold text-ink">{s.name}</p>
-            <p className="mt-0.5 text-xs text-ink-muted">
+    <Link to={`/app/schedule/${s.id}`} className={`card hover-lift block p-3 ${muted ? 'opacity-90' : ''}`}>
+      <div className="flex items-center gap-2.5">
+        <span
+          className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
+            s.status === 'ACTIVE'
+              ? 'bg-orange-500/12 text-orange-600 dark:text-orange-300'
+              : s.status === 'COMPLETED'
+                ? 'bg-accent-500/12 text-accent-600 dark:text-accent-300'
+                : 'bg-surface-soft text-ink-muted'
+          }`}
+        >
+          <Icon name="wallet" size={15} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="truncate text-sm font-semibold text-ink">{s.name}</p>
+            <p className="shrink-0 text-sm font-bold text-ink">{formatKes(s.locked_balance)}</p>
+          </div>
+          <div className="mt-0.5 flex items-center justify-between gap-2 text-xs text-ink-muted">
+            <span className="truncate">
               {s.nextSendToday
                 ? `Next · ${formatTime12(new Date(s.nextSendToday).toTimeString().slice(0, 5))}`
                 : s.status === 'ACTIVE'
@@ -330,35 +359,22 @@ function ScheduleCard({ s, muted }) {
                   : s.status === 'COMPLETED'
                     ? 'All sends complete'
                     : 'Awaiting deposit'}
-            </p>
+            </span>
+            <span className="shrink-0">
+              {s.remainingDays}/{s.total_days}d
+            </span>
           </div>
         </div>
-        <StatusBadge status={s.status} />
       </div>
 
       {s.status === 'ACTIVE' && s.total_days > 0 && (
-        <div className="mt-3.5">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-soft">
-            <div
-              className="h-full rounded-full bg-orange-500"
-              style={{ width: `${pct}%`, transition: 'width 0.8s cubic-bezier(0.22,1,0.36,1)' }}
-            />
-          </div>
+        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-surface-soft">
+          <div
+            className="h-full rounded-full bg-orange-500"
+            style={{ width: `${pct}%`, transition: 'width 0.8s cubic-bezier(0.22,1,0.36,1)' }}
+          />
         </div>
       )}
-
-      <div className="mt-3.5 flex items-center justify-between border-t border-line pt-3 text-sm">
-        <div>
-          <p className="text-xs text-ink-muted">Locked balance</p>
-          <p className="font-bold text-ink">{formatKes(s.locked_balance)}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-ink-muted">Days left</p>
-          <p className="font-bold text-ink">
-            {s.remainingDays} / {s.total_days}
-          </p>
-        </div>
-      </div>
     </Link>
   )
 }
