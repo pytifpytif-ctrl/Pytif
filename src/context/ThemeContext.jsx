@@ -2,46 +2,37 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 const ThemeContext = createContext(null)
 const STORAGE_KEY = 'pytif-theme'
-const media = () => window.matchMedia('(prefers-color-scheme: dark)')
 
 function systemPrefersDark() {
-  return typeof window !== 'undefined' && media().matches
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
+// Saved choice wins; on first visit we fall back to the OS preference.
+function getInitialMode() {
+  if (typeof window === 'undefined') return 'light'
+  const saved = localStorage.getItem(STORAGE_KEY)
+  if (saved === 'light' || saved === 'dark') return saved
+  return systemPrefersDark() ? 'dark' : 'light'
 }
 
 function applyTheme(mode) {
-  const isDark = mode === 'dark' || (mode === 'system' && systemPrefersDark())
+  const isDark = mode === 'dark'
   document.documentElement.classList.toggle('dark', isDark)
   return isDark
 }
 
 export function ThemeProvider({ children }) {
-  const [mode, setMode] = useState(() => {
-    if (typeof window === 'undefined') return 'system'
-    return localStorage.getItem(STORAGE_KEY) || 'system'
-  })
-  const [isDark, setIsDark] = useState(() => applyTheme(mode))
+  const [mode, setMode] = useState(getInitialMode)
+  const [isDark, setIsDark] = useState(() => applyTheme(getInitialMode()))
 
   useEffect(() => {
     setIsDark(applyTheme(mode))
-    if (mode === 'system') localStorage.removeItem(STORAGE_KEY)
-    else localStorage.setItem(STORAGE_KEY, mode)
+    localStorage.setItem(STORAGE_KEY, mode)
   }, [mode])
 
-  // React to OS changes only while following the system.
-  useEffect(() => {
-    if (mode !== 'system') return undefined
-    const mq = media()
-    const onChange = () => setIsDark(applyTheme('system'))
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [mode])
+  const toggle = useCallback(() => setMode((m) => (m === 'dark' ? 'light' : 'dark')), [])
 
-  // Cycle light -> dark -> system -> light
-  const cycle = useCallback(() => {
-    setMode((m) => (m === 'light' ? 'dark' : m === 'dark' ? 'system' : 'light'))
-  }, [])
-
-  const value = useMemo(() => ({ mode, isDark, setMode, cycle }), [mode, isDark, cycle])
+  const value = useMemo(() => ({ mode, isDark, setMode, toggle }), [mode, isDark, toggle])
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }
 

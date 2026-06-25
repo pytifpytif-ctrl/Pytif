@@ -58,12 +58,6 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
-  const seedDemo = useCallback(async () => {
-    const u = await api.seedDemo()
-    setUser(u)
-    return u
-  }, [])
-
   const signInWithGoogle = useCallback(async () => {
     await api.signInWithGoogle()
   }, [])
@@ -98,7 +92,6 @@ export function AuthProvider({ children }) {
     login,
     logout,
     refresh,
-    seedDemo,
     signInWithGoogle,
     updateProfile,
     uploadAvatar,

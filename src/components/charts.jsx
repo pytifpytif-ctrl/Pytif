@@ -95,8 +95,7 @@ export function QuickAction({ icon, label, to, onClick, tone = 'brand' }) {
   const tones = {
     brand: 'bg-brand-600',
     accent: 'bg-accent-500',
-    violet: 'bg-violet-500',
-    sky: 'bg-sky-500',
+    amber: 'bg-amber-500',
     flame: 'bg-orange-500',
   }
   const inner = (

@@ -277,6 +277,14 @@ async function listTransactions() {
   return (data || []).map((t) => ({ ...t, schedule_name: t.schedules?.name }))
 }
 
+async function listDeposits() {
+  const { data } = await supabase
+    .from('deposits')
+    .select('*, schedules(name)')
+    .order('created_at', { ascending: false })
+  return (data || []).map((d) => ({ ...d, schedule_name: d.schedules?.name }))
+}
+
 async function getDashboard() {
   const schedules = await listSchedules()
   const totalLocked = schedules
@@ -297,16 +305,28 @@ async function getDashboard() {
 
   const upcomingToday = (today || []).map((t) => ({ ...t, schedule_name: t.schedules?.name }))
 
+  const { data: up } = await supabase
+    .from('transactions')
+    .select('*, schedules(name)')
+    .eq('status', 'PENDING')
+    .gte('scheduled_for', new Date().toISOString())
+    .order('scheduled_for', { ascending: true })
+    .limit(30)
+
+  const upcoming = (up || []).map((t) => ({ ...t, schedule_name: t.schedules?.name }))
+
   const cards = schedules.map((s) => {
     const next = upcomingToday.find((t) => t.schedule_id === s.id && t.status === 'PENDING')
+    const nextAny = upcoming.find((t) => t.schedule_id === s.id)
     return {
       ...s,
       nextSendToday: next ? next.scheduled_for : null,
+      nextSend: nextAny ? nextAny.scheduled_for : null,
       remainingDays: Math.max(0, (s.total_days || 0) - (s.days_completed || 0)),
     }
   })
 
-  return { totalLocked, schedules: cards, upcomingToday }
+  return { totalLocked, schedules: cards, upcomingToday, upcoming }
 }
 
 async function getRecycleDraft(scheduleId) {
@@ -336,10 +356,6 @@ function tick() {
   return false
 }
 
-async function seedDemo() {
-  throw new Error('Demo seeding is only available in local (no-Supabase) mode.')
-}
-
 export const supabaseBackend = {
   isMock: false,
   register,
@@ -360,10 +376,10 @@ export const supabaseBackend = {
   listSchedules,
   getSchedule,
   listTransactions,
+  listDeposits,
   getDashboard,
   getRecycleDraft,
   requestCancellation,
-  seedDemo,
   tick,
   feeFor,
 }

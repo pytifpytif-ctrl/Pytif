@@ -4,8 +4,8 @@
 
 :root {
   color-scheme: light;
-  /* Neutral white theme — channels (R G B) consumed by Tailwind tokens. */
-  --app: 255 255 255;
+  /* Neutral white theme with a faint warm base so decor reads through gaps. */
+  --app: 252 250 247;
   --surface: 255 255 255;
   --surface-soft: 245 245 245;
   --surface-raised: 255 255 255;
@@ -113,6 +113,40 @@ input[type='number'] {
 }
 
 @layer utilities {
+  /* Vivid, dimensional orange surface for hero blocks — a bright top-left
+     sheen, a deep bottom-right, over a diagonal base. Sharp, not muddy. */
+  .bg-brand-rich {
+    background-color: #f97316;
+    background-image:
+      radial-gradient(135% 135% at 0% 0%, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 42%),
+      radial-gradient(120% 120% at 100% 100%, rgba(124, 45, 18, 0.55), rgba(124, 45, 18, 0) 55%),
+      linear-gradient(135deg, #fb923c 0%, #f97316 48%, #ea580c 100%);
+  }
+
+  /* Decorative page canvas: warm base wash + orange aurora corners + dot grid.
+     Layered on bg-app; visible in gaps between cards and at screen edges. */
+  .app-bg-decor {
+    background-color: rgb(var(--app));
+    background-image:
+      radial-gradient(42rem 42rem at 92% -8%, rgba(249, 115, 22, 0.28), transparent 58%),
+      radial-gradient(36rem 36rem at -10% 105%, rgba(251, 146, 60, 0.2), transparent 58%),
+      radial-gradient(28rem 28rem at 50% 0%, rgba(255, 237, 213, 0.55), transparent 70%),
+      linear-gradient(165deg, rgba(255, 247, 237, 0.65) 0%, transparent 45%, rgba(254, 243, 199, 0.35) 100%),
+      radial-gradient(rgba(249, 115, 22, 0.09) 1px, transparent 1.4px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 20px 20px;
+    background-attachment: fixed, fixed, fixed, fixed, fixed;
+    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  }
+  .dark .app-bg-decor {
+    background-color: rgb(var(--app));
+    background-image:
+      radial-gradient(42rem 42rem at 92% -8%, rgba(249, 115, 22, 0.32), transparent 58%),
+      radial-gradient(36rem 36rem at -10% 105%, rgba(234, 88, 12, 0.22), transparent 58%),
+      radial-gradient(30rem 30rem at 50% 0%, rgba(249, 115, 22, 0.08), transparent 72%),
+      linear-gradient(165deg, rgba(249, 115, 22, 0.06) 0%, transparent 50%, rgba(124, 45, 18, 0.12) 100%),
+      radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1.4px);
+  }
+
   /* Staggered reveal: parent gets .stagger, children animate in sequence. */
   .stagger > * {
     animation: slide-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;

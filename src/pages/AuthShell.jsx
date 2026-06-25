@@ -5,9 +5,9 @@ export default function AuthShell({ title, subtitle, children, footer }) {
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-app px-6 lg:items-center lg:justify-center lg:px-4">
       {/* Decorative gradient mesh */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute -right-24 -top-32 h-80 w-80 rounded-full bg-brand-400/25 blur-3xl dark:bg-brand-500/20" />
-        <div className="absolute -bottom-32 -left-24 h-80 w-80 rounded-full bg-accent-400/20 blur-3xl dark:bg-accent-500/15" />
-        <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-300/20 blur-3xl dark:bg-brand-500/10" />
+        <div className="absolute -right-24 -top-32 h-80 w-80 rounded-full bg-orange-400/25 blur-3xl dark:bg-orange-500/20" />
+        <div className="absolute -bottom-32 -left-24 h-80 w-80 rounded-full bg-amber-400/20 blur-3xl dark:bg-orange-500/12" />
+        <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-300/20 blur-3xl dark:bg-orange-500/10" />
       </div>
 
       <div className="absolute right-5 top-5 z-20">

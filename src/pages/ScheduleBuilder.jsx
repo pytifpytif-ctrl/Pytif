@@ -260,7 +260,7 @@ export default function ScheduleBuilder() {
   const progress = ((stepIndex + 1) / steps.length) * 100
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-app lg:max-w-2xl">
+    <div className="mx-auto flex min-h-screen max-w-md flex-col lg:max-w-2xl">
       {/* Top bar + progress */}
       <div className="sticky top-0 z-20 bg-app/95 px-5 pb-3 pt-5 backdrop-blur">
         <div className="flex items-center gap-3">
@@ -841,7 +841,7 @@ function Row({ k, v }) {
 
 function NeedsNumber({ navigate }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-app px-8 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center px-8 text-center">
       <div className="mb-6 grid h-20 w-20 place-items-center rounded-3xl bg-orange-500 text-white">
         <Icon name="phone" size={34} />
       </div>
@@ -864,7 +864,7 @@ function NeedsNumber({ navigate }) {
 
 function StkWaiting({ total, number }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-app px-8 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center px-8 text-center">
       <div className="relative mb-8">
         <span className="absolute inset-0 animate-pulse-ring rounded-full bg-brand-400" />
         <span className="relative grid h-20 w-20 place-items-center rounded-full bg-brand-600 text-white shadow-float">
@@ -888,7 +888,7 @@ function StkWaiting({ total, number }) {
 
 function SuccessScreen({ result, navigate }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-app px-8 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center px-8 text-center">
       <div className="mb-6 grid h-20 w-20 place-items-center rounded-full bg-accent-500 text-white shadow-float">
         <svg width="38" height="38" viewBox="0 0 24 24" fill="none">
           <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />

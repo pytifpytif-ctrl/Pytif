@@ -12,6 +12,8 @@ import ScheduleBuilder from './pages/ScheduleBuilder.jsx'
 import ScheduleDetail from './pages/ScheduleDetail.jsx'
 import History from './pages/History.jsx'
 import Settings from './pages/Settings.jsx'
+import Notifications from './pages/Notifications.jsx'
+import Analytics from './pages/Analytics.jsx'
 import Terms from './pages/Terms.jsx'
 import Privacy from './pages/Privacy.jsx'
 
@@ -75,6 +77,9 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="history" element={<History />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="profile" element={<Settings />} />
+        <Route path="notifications" element={<Notifications />} />
+        <Route path="analytics" element={<Analytics />} />
       </Route>
 
       {/* Full-screen flows (no bottom nav) */}

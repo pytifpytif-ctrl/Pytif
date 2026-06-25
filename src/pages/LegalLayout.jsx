@@ -4,7 +4,7 @@ import { Logo, ThemeToggle } from '../components/ui.jsx'
 export default function LegalLayout({ title, updated, children }) {
   const navigate = useNavigate()
   return (
-    <div className="min-h-screen bg-app">
+    <div className="min-h-screen">
       <header className="sticky top-0 z-10 border-b border-line bg-app/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
           <Link to="/" aria-label="Pytif home">

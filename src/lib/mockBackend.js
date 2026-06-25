@@ -376,10 +376,21 @@ async function listTransactions() {
     .sort((a, b) => new Date(b.scheduled_for) - new Date(a.scheduled_for))
 }
 
+async function listDeposits() {
+  const db = loadDb()
+  const session = getSession()
+  if (!session) return []
+  const byId = Object.fromEntries(db.schedules.map((s) => [s.id, s]))
+  return db.deposits
+    .filter((d) => d.user_id === session.userId)
+    .map((d) => ({ ...d, schedule_name: byId[d.schedule_id]?.name || 'Schedule' }))
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+}
+
 async function getDashboard() {
   const db = loadDb()
   const session = getSession()
-  if (!session) return { totalLocked: 0, schedules: [], upcomingToday: [] }
+  if (!session) return { totalLocked: 0, schedules: [], upcomingToday: [], upcoming: [] }
   const schedules = db.schedules.filter((s) => s.user_id === session.userId)
   const totalLocked = schedules
     .filter((s) => s.status === 'ACTIVE')
@@ -398,20 +409,29 @@ async function getDashboard() {
     .map((t) => ({ ...t, schedule_name: schedules.find((s) => s.id === t.schedule_id)?.name }))
     .sort((a, b) => new Date(a.scheduled_for) - new Date(b.scheduled_for))
 
+  const now = new Date()
+  const upcoming = db.transactions
+    .filter((t) => t.user_id === session.userId && t.status === 'PENDING' && new Date(t.scheduled_for) >= now)
+    .map((t) => ({ ...t, schedule_name: schedules.find((s) => s.id === t.schedule_id)?.name }))
+    .sort((a, b) => new Date(a.scheduled_for) - new Date(b.scheduled_for))
+    .slice(0, 30)
+
   const cards = schedules.map((s) => {
     const txns = db.transactions.filter((t) => t.schedule_id === s.id)
     const nextToday = upcomingToday.find((t) => t.schedule_id === s.id && t.status === 'PENDING')
+    const nextAny = upcoming.find((t) => t.schedule_id === s.id)
     const remainingDays = remainingActiveDays(s, db)
     return {
       ...s,
       nextSendToday: nextToday ? nextToday.scheduled_for : null,
+      nextSend: nextAny ? nextAny.scheduled_for : null,
       remainingDays,
       totalTxns: txns.length,
       sentTxns: txns.filter((t) => t.status === 'SUCCESS').length,
     }
   })
 
-  return { totalLocked, schedules: cards, upcomingToday }
+  return { totalLocked, schedules: cards, upcomingToday, upcoming }
 }
 
 function remainingActiveDays(schedule, db) {
@@ -516,28 +536,6 @@ function tick() {
   return changed
 }
 
-// ---- Demo seeding ----
-async function seedDemo() {
-  const db = loadDb()
-  if (db.users.length) {
-    setSession({ userId: db.users[0].id })
-    return publicUser(db.users[0])
-  }
-  const user = {
-    id: uid(),
-    name: 'Demo User',
-    email: 'demo@pytif.app',
-    mpesa_number: '0712345678',
-    password_hash: pseudoHash('demo1234'),
-    is_verified: true,
-    created_at: new Date().toISOString(),
-  }
-  db.users.push(user)
-  saveDb(db)
-  setSession({ userId: user.id })
-  return publicUser(user)
-}
-
 export const mockBackend = {
   isMock: true,
   register,
@@ -558,9 +556,9 @@ export const mockBackend = {
   listSchedules,
   getSchedule,
   listTransactions,
+  listDeposits,
   getDashboard,
   getRecycleDraft,
   requestCancellation,
-  seedDemo,
   tick,
 }

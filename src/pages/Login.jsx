@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { usingMockBackend } from '../lib/api.js'
 
 export default function Login() {
-  const { login, seedDemo, signInWithGoogle } = useAuth()
+  const { login, signInWithGoogle } = useAuth()
   const navigate = useNavigate()
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
@@ -32,16 +32,6 @@ export default function Login() {
       navigate('/app')
     } catch (err) {
       setError(err.message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const demo = async () => {
-    setBusy(true)
-    try {
-      await seedDemo()
-      navigate('/app')
     } finally {
       setBusy(false)
     }
@@ -104,12 +94,6 @@ export default function Login() {
           {busy ? <Spinner /> : 'Log in'}
         </button>
       </form>
-
-      {usingMockBackend && (
-        <button onClick={demo} className="btn-ghost mt-3 w-full" disabled={busy}>
-          Explore with a demo account
-        </button>
-      )}
     </AuthShell>
   )
 }

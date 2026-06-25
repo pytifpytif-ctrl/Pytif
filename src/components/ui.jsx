@@ -45,7 +45,7 @@ const STATUS_STYLES = {
   COMPLETED: 'bg-surface-soft text-ink-muted',
   CANCELLED: 'bg-rose-500/12 text-rose-600 dark:text-rose-300',
   SUCCESS: 'bg-accent-500/12 text-accent-600 dark:text-accent-300',
-  PENDING: 'bg-sky-500/12 text-sky-600 dark:text-sky-300',
+  PENDING: 'bg-amber-500/15 text-amber-600 dark:text-amber-300',
   FAILED: 'bg-rose-500/12 text-rose-600 dark:text-rose-300',
 }
 
@@ -84,10 +84,12 @@ export function Alert({ kind = 'info', children }) {
   return <div className={`rounded-2xl border px-4 py-3 text-sm ${styles[kind]}`}>{children}</div>
 }
 
-export function EmptyState({ icon = '🗓️', title, subtitle, action }) {
+export function EmptyState({ icon = 'calendar', title, subtitle, action }) {
   return (
     <div className="flex animate-scale-in flex-col items-center justify-center rounded-2xl border border-dashed border-line bg-surface/50 px-6 py-12 text-center">
-      <div className="mb-3 text-4xl">{icon}</div>
+      <span className="mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-300">
+        <Icon name={icon} size={26} />
+      </span>
       <h3 className="text-base font-semibold text-ink">{title}</h3>
       {subtitle && <p className="mt-1 max-w-xs text-sm text-ink-muted">{subtitle}</p>}
       {action && <div className="mt-5">{action}</div>}
@@ -146,17 +148,18 @@ export function ScreenHeader({ title, subtitle, back, right }) {
   )
 }
 
-const THEME_LABEL = { light: 'Light', dark: 'Dark', system: 'System' }
-const THEME_ICON = { light: 'sun', dark: 'moon', system: 'monitor' }
+const THEME_LABEL = { light: 'Light', dark: 'Dark' }
+const THEME_ICON = { light: 'sun', dark: 'moon' }
 
 export function ThemeToggle({ withLabel = false, className = '' }) {
-  const { mode, cycle } = useTheme()
+  const { mode, toggle } = useTheme()
+  const next = mode === 'dark' ? 'light' : 'dark'
   return (
     <button
       type="button"
-      onClick={cycle}
-      aria-label={`Theme: ${THEME_LABEL[mode]} (tap to change)`}
-      title={`Theme: ${THEME_LABEL[mode]}`}
+      onClick={toggle}
+      aria-label={`Switch to ${THEME_LABEL[next]} mode`}
+      title={`${THEME_LABEL[mode]} mode`}
       className={`press flex h-9 items-center gap-2 rounded-full border border-line bg-surface px-2.5 text-ink-soft shadow-card transition-colors hover:text-ink ${className}`}
     >
       <span className="grid h-6 w-6 animate-scale-in place-items-center" key={mode}>

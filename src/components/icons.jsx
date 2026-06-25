@@ -32,6 +32,16 @@ import {
   ChevronDown,
   Settings,
   Shield,
+  Eye,
+  EyeOff,
+  Bell,
+  BarChart3,
+  Receipt,
+  CircleUserRound,
+  LayoutGrid,
+  SlidersHorizontal,
+  X,
+  Rocket,
 } from 'lucide-react'
 
 const ICONS = {
@@ -67,6 +77,16 @@ const ICONS = {
   chevronDown: ChevronDown,
   settings: Settings,
   shield: Shield,
+  eye: Eye,
+  eyeOff: EyeOff,
+  bell: Bell,
+  analytics: BarChart3,
+  receipt: Receipt,
+  profile: CircleUserRound,
+  grid: LayoutGrid,
+  filter: SlidersHorizontal,
+  close: X,
+  rocket: Rocket,
 }
 
 export function Icon({ name, size = 20, className = '', strokeWidth = 2 }) {

@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api.js'
 import { useScheduler } from '../hooks/useScheduler.js'
 import { ScreenHeader, Spinner, StatusBadge, Alert } from '../components/ui.jsx'
-import { formatKes, formatTime12, formatDateShort, formatDateLong, formatPhone } from '../lib/format.js'
+import { Icon } from '../components/icons.jsx'
+import { formatKes, formatTime12, formatDateShort, formatDateLong, formatDateTime, formatPhone } from '../lib/format.js'
 import { PATTERNS, WEEKDAY_LABELS, fromDateKey } from '../lib/schedule.js'
 
 export default function ScheduleDetail() {
@@ -54,8 +55,12 @@ export default function ScheduleDetail() {
       />
 
       {/* Balance + progress */}
-      <section className="overflow-hidden rounded-3xl bg-orange-500 p-6 text-white lg:p-8">
-        <p className="text-xs font-medium uppercase tracking-wide text-orange-100">Locked balance remaining</p>
+      <section className="bg-brand-rich relative overflow-hidden rounded-3xl p-6 text-white shadow-glow lg:p-8">
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          <div className="absolute -right-10 -top-16 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
+          <div className="absolute -right-6 bottom-2 h-28 w-28 rounded-full border border-white/15" />
+        </div>
+        <p className="relative text-xs font-medium uppercase tracking-wide text-orange-100">Locked balance remaining</p>
         <p className="mt-1.5 text-3xl font-extrabold">{formatKes(schedule.locked_balance)}</p>
         <div className="mt-4">
           <div className="mb-1.5 flex justify-between text-xs text-orange-100">
@@ -220,7 +225,6 @@ function DailyTemplate({ slots, pattern }) {
 }
 
 function SendRow({ t }) {
-  const time = formatTime12(new Date(t.scheduled_for).toTimeString().slice(0, 5))
   return (
     <div className="card flex items-center justify-between p-4">
       <div className="flex items-center gap-3">
@@ -230,13 +234,13 @@ function SendRow({ t }) {
               ? 'bg-accent-500/12 text-accent-600 dark:text-accent-300'
               : t.status === 'FAILED'
                 ? 'bg-rose-500/12 text-rose-600 dark:text-rose-300'
-                : 'bg-sky-500/12 text-sky-600 dark:text-sky-300'
+                : 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
           }`}
         >
-          {t.status === 'SUCCESS' ? '✓' : t.status === 'FAILED' ? '!' : '◷'}
+          <Icon name={t.status === 'SUCCESS' ? 'check' : t.status === 'FAILED' ? 'bolt' : 'clock'} size={16} />
         </span>
         <div>
-          <p className="text-sm font-semibold text-ink">{time}</p>
+          <p className="text-sm font-semibold text-ink">{formatDateTime(t.scheduled_for)}</p>
           <p className="text-xs text-ink-muted">{t.label || 'Send'}</p>
         </div>
       </div>

@@ -5,26 +5,9 @@ import { useAuth } from '../context/AuthContext.jsx'
 
 const tabs = [
   { to: '/app', label: 'Home', end: true, icon: 'home' },
-  { to: '/app/history', label: 'History', icon: 'history' },
-  { to: '/app/settings', label: 'Settings', icon: 'settings' },
+  { to: '/app/history', label: 'History', icon: 'receipt' },
+  { to: '/app/profile', label: 'Profile', icon: 'profile' },
 ]
-
-function MobileTab({ tab }) {
-  return (
-    <NavLink
-      to={tab.to}
-      end={tab.end}
-      className={({ isActive }) =>
-        `flex flex-1 flex-col items-center gap-1 rounded-2xl py-2 text-xs font-medium transition-colors ${
-          isActive ? 'text-orange-600 dark:text-orange-400' : 'text-ink-muted'
-        }`
-      }
-    >
-      <Icon name={tab.icon} size={22} />
-      {tab.label}
-    </NavLink>
-  )
-}
 
 export default function AppLayout() {
   const { user, logout } = useAuth()
@@ -37,7 +20,7 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-app lg:flex">
+    <div className="app-bg-decor min-h-screen bg-app lg:flex">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-line bg-surface px-4 py-6 lg:flex">
         <div className="px-2">
@@ -67,7 +50,7 @@ export default function AppLayout() {
             to="/app/new"
             className="press mt-3 flex items-center justify-center gap-2 rounded-2xl bg-orange-500 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-600"
           >
-            <Icon name="calendarPlus" size={18} strokeWidth={2.2} />
+            <Icon name="rocket" size={18} strokeWidth={2.2} />
             New schedule
           </NavLink>
         </nav>
@@ -97,24 +80,24 @@ export default function AppLayout() {
         </main>
       </div>
 
-      {/* Mobile bottom nav (Home · New · History · Settings) */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md border-t border-line bg-surface/95 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden">
-        <div className="flex items-center justify-around">
-          <MobileTab tab={tabs[0]} />
-
-          <NavLink
-            to="/app/new"
-            className="press flex flex-1 flex-col items-center gap-1"
-            aria-label="New schedule"
-          >
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-orange-500 text-white">
-              <Icon name="calendarPlus" size={18} strokeWidth={2.2} />
-            </span>
-            <span className="text-xs font-medium text-ink-muted">New</span>
-          </NavLink>
-
-          <MobileTab tab={tabs[1]} />
-          <MobileTab tab={tabs[2]} />
+      {/* Floating mobile bottom nav (Home · History · Profile) */}
+      <nav className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-30 -translate-x-1/2 lg:hidden">
+        <div className="flex items-center gap-2 rounded-[1.75rem] bg-neutral-900 p-2 shadow-float dark:bg-neutral-800">
+          {tabs.map((t) => (
+            <NavLink
+              key={t.to}
+              to={t.to}
+              end={t.end}
+              aria-label={t.label}
+              className={({ isActive }) =>
+                `press grid h-12 w-12 place-items-center rounded-2xl transition-colors ${
+                  isActive ? 'bg-orange-500 text-white shadow-glow' : 'text-neutral-400 hover:text-white'
+                }`
+              }
+            >
+              <Icon name={t.icon} size={22} strokeWidth={2.1} />
+            </NavLink>
+          ))}
         </div>
       </nav>
     </div>
