@@ -60,13 +60,20 @@ export default function Login() {
         </span>
       }
     >
+      {!usingMockBackend && (
+        <div className="mb-1">
+          <GoogleButton onClick={google} disabled={busy} />
+          <OrDivider />
+        </div>
+      )}
+
       <form onSubmit={submit}>
         {error && (
           <div className="mb-4">
             <Alert kind="error">{error}</Alert>
           </div>
         )}
-        <Field label="Email">
+        <Field label="Email" icon="mail">
           <input
             className="field"
             type="email"
@@ -76,7 +83,7 @@ export default function Login() {
             autoComplete="email"
           />
         </Field>
-        <Field label="Password">
+        <Field label="Password" icon="lock">
           <input
             className="field"
             type="password"
@@ -97,13 +104,6 @@ export default function Login() {
           {busy ? <Spinner /> : 'Log in'}
         </button>
       </form>
-
-      {!usingMockBackend && (
-        <>
-          <OrDivider />
-          <GoogleButton onClick={google} disabled={busy} />
-        </>
-      )}
 
       {usingMockBackend && (
         <button onClick={demo} className="btn-ghost mt-3 w-full" disabled={busy}>

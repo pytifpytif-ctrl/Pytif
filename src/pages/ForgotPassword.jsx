@@ -48,7 +48,7 @@ export default function ForgotPassword() {
               <Alert kind="error">{error}</Alert>
             </div>
           )}
-          <Field label="Email">
+          <Field label="Email" icon="mail">
             <input
               className="field"
               type="email"

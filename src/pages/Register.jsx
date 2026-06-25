@@ -92,7 +92,7 @@ export default function Register() {
             <Alert kind="error">{error}</Alert>
           </div>
         )}
-        <p className="mt-5 text-sm text-slate-500">
+        <p className="mt-5 text-sm text-ink-muted">
           Didn't get it? Check spam, or resend below.
         </p>
         <button
@@ -120,13 +120,20 @@ export default function Register() {
         </span>
       }
     >
+      {!usingMockBackend && (
+        <div className="mb-1">
+          <GoogleButton onClick={google} disabled={busy} label="Sign up with Google" />
+          <OrDivider />
+        </div>
+      )}
+
       <form onSubmit={submit}>
         {error && (
           <div className="mb-4">
             <Alert kind="error">{error}</Alert>
           </div>
         )}
-        <Field label="First name">
+        <Field label="First name" icon="user">
           <input
             className="field"
             placeholder="Jane"
@@ -135,7 +142,7 @@ export default function Register() {
             autoComplete="given-name"
           />
         </Field>
-        <Field label="Email">
+        <Field label="Email" icon="mail">
           <input
             className="field"
             type="email"
@@ -145,7 +152,7 @@ export default function Register() {
             autoComplete="email"
           />
         </Field>
-        <Field label="Password">
+        <Field label="Password" icon="lock">
           <input
             className="field"
             type="password"
@@ -155,7 +162,7 @@ export default function Register() {
             autoComplete="new-password"
           />
         </Field>
-        <Field label="Confirm password">
+        <Field label="Confirm password" icon="lock">
           <input
             className="field"
             type="password"
@@ -180,13 +187,6 @@ export default function Register() {
           .
         </p>
       </form>
-
-      {!usingMockBackend && (
-        <>
-          <OrDivider />
-          <GoogleButton onClick={google} disabled={busy} label="Sign up with Google" />
-        </>
-      )}
     </AuthShell>
   )
 }

@@ -41,7 +41,7 @@ export default function MonthCalendar({ selected = [], onChange, multi = true, m
         <button
           type="button"
           onClick={() => setView(new Date(year, month - 1, 1))}
-          className="grid h-9 w-9 place-items-center rounded-full text-ink-soft hover:bg-slate-100"
+          className="grid h-9 w-9 place-items-center rounded-full text-ink-soft transition hover:bg-surface-soft"
         >
           ‹
         </button>
@@ -51,7 +51,7 @@ export default function MonthCalendar({ selected = [], onChange, multi = true, m
         <button
           type="button"
           onClick={() => setView(new Date(year, month + 1, 1))}
-          className="grid h-9 w-9 place-items-center rounded-full text-ink-soft hover:bg-slate-100"
+          className="grid h-9 w-9 place-items-center rounded-full text-ink-soft transition hover:bg-surface-soft"
         >
           ›
         </button>
@@ -79,8 +79,8 @@ export default function MonthCalendar({ selected = [], onChange, multi = true, m
                 isSelected
                   ? 'bg-brand-600 text-white shadow-float'
                   : disabled
-                    ? 'text-slate-300'
-                    : 'text-ink hover:bg-brand-50'
+                    ? 'text-ink-muted/40'
+                    : 'text-ink hover:bg-brand-500/10'
               }`}
             >
               {date.getDate()}

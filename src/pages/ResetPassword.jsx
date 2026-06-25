@@ -43,7 +43,7 @@ export default function ResetPassword() {
               <Alert kind="error">{error}</Alert>
             </div>
           )}
-          <Field label="New password">
+          <Field label="New password" icon="lock">
             <input
               className="field"
               type="password"
@@ -53,7 +53,7 @@ export default function ResetPassword() {
               autoComplete="new-password"
             />
           </Field>
-          <Field label="Confirm new password">
+          <Field label="Confirm new password" icon="lock">
             <input
               className="field"
               type="password"

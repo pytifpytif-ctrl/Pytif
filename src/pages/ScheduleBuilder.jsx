@@ -232,20 +232,20 @@ export default function ScheduleBuilder() {
   const progress = ((stepIndex + 1) / steps.length) * 100
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-[#f4f6fa] lg:max-w-2xl">
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-app lg:max-w-2xl">
       {/* Top bar + progress */}
-      <div className="sticky top-0 z-20 bg-[#f4f6fa]/95 px-5 pb-3 pt-5 backdrop-blur">
+      <div className="sticky top-0 z-20 bg-app/95 px-5 pb-3 pt-5 backdrop-blur">
         <div className="flex items-center gap-3">
           <button
             onClick={back}
-            className="grid h-9 w-9 place-items-center rounded-full bg-white text-ink shadow-card"
+            className="press grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-ink shadow-card"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
           <div className="flex-1">
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-soft">
               <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${progress}%` }} />
             </div>
           </div>
@@ -297,7 +297,7 @@ export default function ScheduleBuilder() {
       </div>
 
       {/* Sticky footer CTA */}
-      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-slate-100 bg-white/95 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur lg:max-w-2xl">
+      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-line bg-surface/95 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur lg:max-w-2xl">
         {step === 'slots' && (
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="text-ink-muted">{isPerDay ? 'Est. total to lock' : 'Daily total'}</span>
@@ -375,8 +375,8 @@ function StepPattern({ name, setName, pattern, setPattern, isRecycle }) {
             <button
               key={o.id}
               onClick={() => setPattern(o.id)}
-              className={`flex w-full items-center gap-4 rounded-3xl border-2 p-4 text-left transition ${
-                active ? 'border-brand-600 bg-brand-50' : 'border-transparent bg-white shadow-card'
+              className={`press flex w-full items-center gap-4 rounded-3xl border-2 p-4 text-left transition ${
+                active ? 'border-brand-600 bg-brand-500/10' : 'border-transparent bg-surface shadow-card'
               }`}
             >
               <span className="text-3xl">{o.icon}</span>
@@ -386,7 +386,7 @@ function StepPattern({ name, setName, pattern, setPattern, isRecycle }) {
               </span>
               <span
                 className={`grid h-6 w-6 place-items-center rounded-full border-2 ${
-                  active ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300'
+                  active ? 'border-brand-600 bg-brand-600 text-white' : 'border-line'
                 }`}
               >
                 {active && '✓'}
@@ -418,12 +418,12 @@ function StepDays({ activeDays, setActiveDays }) {
             <button
               key={d.iso}
               onClick={() => toggle(d.iso)}
-              className={`flex flex-col items-center gap-1 rounded-2xl py-3 text-xs font-semibold transition ${
-                on ? 'bg-brand-600 text-white shadow-float' : 'bg-white text-ink-muted shadow-card'
+              className={`press flex flex-col items-center gap-1 rounded-2xl py-3 text-xs font-semibold transition ${
+                on ? 'bg-brand-600 text-white shadow-float' : 'border border-line bg-surface text-ink-muted shadow-card'
               }`}
             >
               {d.short}
-              <span className={`text-[10px] ${on ? 'text-brand-100' : 'text-slate-400'}`}>
+              <span className={`text-[10px] ${on ? 'text-brand-100' : 'text-ink-muted'}`}>
                 {on ? 'ON' : 'OFF'}
               </span>
             </button>
@@ -431,13 +431,13 @@ function StepDays({ activeDays, setActiveDays }) {
         })}
       </div>
       <div className="mt-5 flex gap-2">
-        <button onClick={() => setActiveDays([1, 2, 3, 4, 5])} className="chip bg-white shadow-card text-ink-soft">
+        <button onClick={() => setActiveDays([1, 2, 3, 4, 5])} className="chip press border border-line bg-surface text-ink-soft shadow-card">
           Weekdays
         </button>
-        <button onClick={() => setActiveDays([6, 7])} className="chip bg-white shadow-card text-ink-soft">
+        <button onClick={() => setActiveDays([6, 7])} className="chip press border border-line bg-surface text-ink-soft shadow-card">
           Weekends
         </button>
-        <button onClick={() => setActiveDays([1, 2, 3, 4, 5, 6, 7])} className="chip bg-white shadow-card text-ink-soft">
+        <button onClick={() => setActiveDays([1, 2, 3, 4, 5, 6, 7])} className="chip press border border-line bg-surface text-ink-soft shadow-card">
           All week
         </button>
       </div>
@@ -474,11 +474,11 @@ function SlotList({ slots, update, remove, add, openTime, canRemove }) {
     <>
       <div className="space-y-3">
         {slots.map((s) => (
-          <div key={s.key} className="rounded-2xl border border-slate-200 bg-white p-3">
+          <div key={s.key} className="rounded-2xl border border-line bg-surface p-3">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => openTime(s.key)}
-                className="flex items-center gap-2 rounded-2xl bg-brand-50 px-3 py-2.5 font-bold text-brand-700"
+                className="press flex items-center gap-2 rounded-2xl bg-brand-500/10 px-3 py-2.5 font-bold text-brand-600 dark:text-brand-300"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
@@ -510,7 +510,7 @@ function SlotList({ slots, update, remove, add, openTime, canRemove }) {
               </button>
             </div>
             <input
-              className="mt-2 w-full rounded-xl bg-slate-50 px-3 py-2 text-sm outline-none placeholder:text-slate-400"
+              className="mt-2 w-full rounded-xl bg-surface-soft px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-muted"
               placeholder="Label (optional) — e.g. Morning fare"
               value={s.label}
               onChange={(e) => update(s.key, { label: e.target.value })}
@@ -548,6 +548,7 @@ function StepSlots({ slots, setSlots, openTime }) {
 
 function StepDaySlots({ dayKeys, daySlots, setDaySlots, openTime }) {
   const [open, setOpen] = useState(dayKeys[0]?.key ?? null)
+  const [copiedFrom, setCopiedFrom] = useState(null)
 
   const updateDay = (dayKey, fn) =>
     setDaySlots((prev) => ({ ...prev, [dayKey]: fn(prev[dayKey] || []) }))
@@ -556,12 +557,16 @@ function StepDaySlots({ dayKeys, daySlots, setDaySlots, openTime }) {
   const remove = (dayKey) => (key) => updateDay(dayKey, (list) => list.filter((s) => s.key !== key))
   const add = (dayKey) => () => updateDay(dayKey, (list) => appendSlot(list))
   const copyToAll = (dayKey) => () => {
-    const src = (daySlots[dayKey] || []).map((s) => ({ send_time: s.send_time, amount: s.amount, label: s.label }))
     setDaySlots((prev) => {
+      const src = (prev[dayKey] || []).map((s) => ({ send_time: s.send_time, amount: s.amount, label: s.label }))
       const next = {}
-      for (const { key } of dayKeys) next[key] = src.map((s) => newSlot(s))
+      for (const { key } of dayKeys) {
+        next[key] = key === dayKey ? prev[dayKey] : src.map((s) => newSlot(s))
+      }
       return next
     })
+    setCopiedFrom(dayKey)
+    setTimeout(() => setCopiedFrom((c) => (c === dayKey ? null : c)), 1800)
   }
 
   return (
@@ -600,7 +605,7 @@ function StepDaySlots({ dayKeys, daySlots, setDaySlots, openTime }) {
                 </svg>
               </button>
               {isOpen && (
-                <div className="border-t border-slate-100 p-4">
+                <div className="border-t border-line p-4">
                   <SlotList
                     slots={list}
                     update={update(key)}
@@ -612,9 +617,9 @@ function StepDaySlots({ dayKeys, daySlots, setDaySlots, openTime }) {
                   {dayKeys.length > 1 && (
                     <button
                       onClick={copyToAll(key)}
-                      className="mt-3 w-full text-center text-sm font-semibold text-brand-600"
+                      className="mt-3 w-full rounded-xl bg-brand-500/10 py-2.5 text-center text-sm font-semibold text-brand-600 transition active:scale-[0.99] dark:text-brand-300"
                     >
-                      Copy this day to all days
+                      {copiedFrom === key ? 'Copied to all days ✓' : 'Copy this day to all days'}
                     </button>
                   )}
                 </div>
@@ -640,8 +645,8 @@ function StepDuration({ duration, setDuration, activeDays, pattern }) {
             <button
               key={d}
               onClick={() => setDuration({ type: 'preset', days: d, endDateKey: null })}
-              className={`rounded-3xl border-2 py-6 text-center font-bold transition ${
-                active ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-transparent bg-white text-ink shadow-card'
+              className={`press rounded-3xl border-2 py-6 text-center font-bold transition ${
+                active ? 'border-brand-600 bg-brand-500/10 text-brand-600 dark:text-brand-300' : 'border-transparent bg-surface text-ink shadow-card'
               }`}
             >
               <span className="block text-2xl">{d}</span>
@@ -655,7 +660,7 @@ function StepDuration({ duration, setDuration, activeDays, pattern }) {
         <button
           onClick={() => setDuration({ type: 'customDays', days: duration.days || 21, endDateKey: null })}
           className={`w-full rounded-2xl border-2 p-4 text-left transition ${
-            duration.type === 'customDays' ? 'border-brand-600 bg-brand-50' : 'border-transparent bg-white shadow-card'
+            duration.type === 'customDays' ? 'border-brand-600 bg-brand-500/10' : 'border-transparent bg-surface shadow-card'
           }`}
         >
           <span className="font-semibold text-ink">Custom number of days</span>
@@ -679,7 +684,7 @@ function StepDuration({ duration, setDuration, activeDays, pattern }) {
             setDuration({ type: 'endDate', days: duration.days, endDateKey: duration.endDateKey || toDateKey(addDays(startOfToday(), 30)) })
           }
           className={`w-full rounded-2xl border-2 p-4 text-left transition ${
-            duration.type === 'endDate' ? 'border-brand-600 bg-brand-50' : 'border-transparent bg-white shadow-card'
+            duration.type === 'endDate' ? 'border-brand-600 bg-brand-500/10' : 'border-transparent bg-surface shadow-card'
           }`}
         >
           <span className="font-semibold text-ink">Pick an end date</span>
@@ -694,8 +699,8 @@ function StepDuration({ duration, setDuration, activeDays, pattern }) {
         )}
       </div>
 
-      <div className="mt-6 rounded-2xl bg-brand-50 p-4 text-center">
-        <p className="text-sm text-brand-900">
+      <div className="mt-6 rounded-2xl bg-brand-500/10 p-4 text-center">
+        <p className="text-sm text-brand-700 dark:text-brand-200">
           That&apos;s{' '}
           <span className="font-extrabold">{activeDays} active day{activeDays === 1 ? '' : 's'}</span>{' '}
           {pattern === PATTERNS.SPECIFIC_DAYS ? 'on your chosen weekdays' : ''}
@@ -723,7 +728,7 @@ function StepDestination({ destination }) {
             <p className="text-xs text-ink-muted">Your registered number</p>
           </div>
         </div>
-        <span className="chip bg-slate-100 text-slate-500">Locked</span>
+        <span className="chip bg-surface-soft text-ink-muted">Locked</span>
       </div>
 
       <div className="mt-4">
@@ -771,10 +776,10 @@ function StepSummary({ name, pattern, breakdown, dailyTotal, resolved, destinati
         <Row k="Base amount" v={formatKes(breakdown.baseAmount)} />
         <Row k={`Service fees (Ksh 5 × ${breakdown.totalSends})`} v={formatKes(breakdown.serviceFees)} />
         <Row k="Mpesa fees" v={formatKes(breakdown.mpesaFees)} />
-        <div className="my-3 border-t border-dashed border-slate-200" />
+        <div className="my-3 border-t border-dashed border-line" />
         <div className="flex items-center justify-between">
           <span className="font-bold text-ink">Total to lock</span>
-          <span className="text-xl font-extrabold text-brand-700">{formatKes(breakdown.total)}</span>
+          <span className="text-xl font-extrabold text-brand-600 dark:text-brand-300">{formatKes(breakdown.total)}</span>
         </div>
       </div>
 
@@ -801,7 +806,7 @@ function Row({ k, v }) {
 
 function StkWaiting({ total, number }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#f4f6fa] px-8 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-app px-8 text-center">
       <div className="relative mb-8">
         <span className="absolute inset-0 animate-pulse-ring rounded-full bg-brand-400" />
         <span className="relative grid h-20 w-20 place-items-center rounded-full bg-brand-600 text-white shadow-float">
@@ -825,7 +830,7 @@ function StkWaiting({ total, number }) {
 
 function SuccessScreen({ result, navigate }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#f4f6fa] px-8 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-app px-8 text-center">
       <div className="mb-6 grid h-20 w-20 place-items-center rounded-full bg-accent-500 text-white shadow-float">
         <svg width="38" height="38" viewBox="0 0 24 24" fill="none">
           <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />

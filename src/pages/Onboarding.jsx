@@ -133,7 +133,7 @@ export default function Onboarding() {
             <Alert kind="success">Signed in as {user.email}</Alert>
           </div>
         )}
-        <Field label="Mpesa number" hint="This is where your scheduled sends are paid out.">
+        <Field label="Mpesa number" icon="phone" hint="This is where your scheduled sends are paid out.">
           <input
             className="field"
             inputMode="numeric"

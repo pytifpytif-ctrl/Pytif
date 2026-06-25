@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api.js'
 import { useScheduler } from '../hooks/useScheduler.js'
-import { ScreenHeader, Spinner, StatusBadge, EmptyState } from '../components/ui.jsx'
+import { ScreenHeader, Spinner, StatusBadge, EmptyState, ThemeToggle } from '../components/ui.jsx'
 import { formatKes, formatTime12, formatDateShort } from '../lib/format.js'
 
 const STATUS_FILTERS = ['ALL', 'SUCCESS', 'PENDING', 'FAILED']
@@ -61,7 +61,11 @@ export default function History() {
 
   return (
     <div className="animate-fade-in mx-auto max-w-2xl">
-      <ScreenHeader title="Transaction history" subtitle={`${formatKes(sentTotal)} sent · ${filtered.length} records`} />
+      <ScreenHeader
+        title="Transaction history"
+        subtitle={`${formatKes(sentTotal)} sent · ${filtered.length} records`}
+        right={<ThemeToggle />}
+      />
 
       {/* Status filter chips */}
       <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
@@ -69,8 +73,8 @@ export default function History() {
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={`chip whitespace-nowrap px-4 py-2 ${
-              status === s ? 'bg-brand-600 text-white' : 'bg-white text-ink-soft shadow-card'
+            className={`chip press whitespace-nowrap px-4 py-2 ${
+              status === s ? 'bg-brand-600 text-white' : 'border border-line bg-surface text-ink-soft shadow-card'
             }`}
           >
             {s === 'ALL' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}
@@ -126,9 +130,9 @@ export default function History() {
               <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-muted">
                 {formatDateShort(day)}
               </p>
-              <div className="card divide-y divide-slate-100">
+              <div className="card divide-y divide-line">
                 {list.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between p-4">
+                  <div key={t.id} className="flex items-center justify-between p-4 transition-colors hover:bg-surface-soft">
                     <div>
                       <p className="text-sm font-semibold text-ink">
                         {formatTime12(new Date(t.scheduled_for).toTimeString().slice(0, 5))} · {t.schedule_name}

@@ -111,7 +111,7 @@ export default function ScheduleDetail() {
         {transactions.length === 0 ? (
           <div className="card p-5 text-sm text-ink-muted">No sends yet.</div>
         ) : (
-          <div className="card divide-y divide-slate-100">
+          <div className="card divide-y divide-line">
             {transactions
               .slice()
               .reverse()
@@ -179,7 +179,7 @@ export default function ScheduleDetail() {
 
 function SlotTable({ slots }) {
   return (
-    <div className="card divide-y divide-slate-100">
+    <div className="card divide-y divide-line">
       {slots.map((s) => (
         <div key={s.id} className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
@@ -227,10 +227,10 @@ function SendRow({ t }) {
         <span
           className={`grid h-9 w-9 place-items-center rounded-full ${
             t.status === 'SUCCESS'
-              ? 'bg-accent-50 text-accent-600'
+              ? 'bg-accent-500/12 text-accent-600 dark:text-accent-300'
               : t.status === 'FAILED'
-                ? 'bg-rose-50 text-rose-600'
-                : 'bg-sky-50 text-sky-600'
+                ? 'bg-rose-500/12 text-rose-600 dark:text-rose-300'
+                : 'bg-sky-500/12 text-sky-600 dark:text-sky-300'
           }`}
         >
           {t.status === 'SUCCESS' ? '✓' : t.status === 'FAILED' ? '!' : '◷'}

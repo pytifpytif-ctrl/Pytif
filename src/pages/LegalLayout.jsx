@@ -1,22 +1,25 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Logo } from '../components/ui.jsx'
+import { Logo, ThemeToggle } from '../components/ui.jsx'
 
 export default function LegalLayout({ title, updated, children }) {
   const navigate = useNavigate()
   return (
-    <div className="min-h-screen bg-[#f4f6fa]">
-      <header className="sticky top-0 z-10 border-b border-slate-200/70 bg-[#f4f6fa]/90 backdrop-blur">
+    <div className="min-h-screen bg-app">
+      <header className="sticky top-0 z-10 border-b border-line bg-app/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
           <Link to="/" aria-label="Pytif home">
             <Logo size={36} />
           </Link>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="text-sm font-semibold text-brand-600"
-          >
-            Back
-          </button>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="text-sm font-semibold text-brand-600 dark:text-brand-300"
+            >
+              Back
+            </button>
+          </div>
         </div>
       </header>
 
@@ -25,7 +28,7 @@ export default function LegalLayout({ title, updated, children }) {
         {updated && <p className="mt-2 text-sm text-ink-muted">Last updated: {updated}</p>}
         <div className="legal mt-8 space-y-6 text-ink-muted">{children}</div>
 
-        <footer className="mt-12 border-t border-slate-200 pt-6 text-sm text-ink-muted">
+        <footer className="mt-12 border-t border-line pt-6 text-sm text-ink-muted">
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             <Link to="/terms" className="font-semibold text-brand-600">
               Terms of Service
