@@ -6,7 +6,7 @@
 // This lets the entire UX run end-to-end with zero infrastructure. The exact
 // same flow is implemented for real in /supabase (SQL + Daraja edge functions).
 
-import { depositBreakdown, feeFor } from './fees.js'
+import { depositBreakdownForDates, feeFor } from './fees.js'
 import { computeActiveDates, generateTransactions } from './schedule.js'
 
 const DB_KEY = 'wastel_db_v1'
@@ -227,7 +227,7 @@ async function createSchedule(payload) {
     endDate: payload.endDate ? new Date(payload.endDate) : null,
   })
   const activeSlots = payload.slots.filter((s) => Number(s.amount) > 0)
-  const breakdown = depositBreakdown(activeSlots, activeDates.length)
+  const breakdown = depositBreakdownForDates(activeDates, activeSlots, payload.pattern)
 
   const scheduleId = uid()
   const schedule = {
@@ -258,6 +258,7 @@ async function createSchedule(payload) {
       send_time: s.send_time,
       amount: Number(s.amount),
       fee: feeFor(s.amount),
+      day_key: s.day_key ?? null,
       is_active: true,
     })
   }
@@ -299,7 +300,7 @@ async function confirmDeposit(depositId) {
     startDate: schedule.start_date ? new Date(schedule.start_date) : null,
     endDate: schedule.end_date ? new Date(schedule.end_date) : null,
   })
-  const txns = generateTransactions(activeDates, slots)
+  const txns = generateTransactions(activeDates, slots, schedule.pattern)
   for (const t of txns) {
     db.transactions.push({
       id: uid(),
@@ -412,6 +413,7 @@ async function getRecycleDraft(scheduleId) {
       send_time: s.send_time,
       amount: s.amount,
       label: s.label,
+      day_key: s.day_key ?? null,
     })),
   }
 }

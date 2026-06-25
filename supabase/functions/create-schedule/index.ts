@@ -23,19 +23,33 @@ function isoDow(d: Date) {
   return js === 0 ? 7 : js
 }
 
-function countActiveDays(p: any): number {
-  if (p.pattern === 'CUSTOM_DATES') return (p.activeDates || []).length
-  const start = new Date(p.startDate)
+function dateKey(d: Date) {
+  return d.toISOString().slice(0, 10)
+}
+
+/** The list of calendar dates a schedule fires on. */
+function activeDateList(p: any): Date[] {
+  if (p.pattern === 'CUSTOM_DATES') {
+    return (p.activeDates || []).map((k: string) => new Date(`${k}T00:00:00Z`))
+  }
+  const out: Date[] = []
+  const cur = new Date(p.startDate)
   const end = new Date(p.endDate)
-  let count = 0
-  const cur = new Date(start)
   let guard = 0
   while (cur <= end && guard < 1000) {
     guard++
-    if (p.pattern === 'EVERY_DAY' || (p.activeDays || []).includes(isoDow(cur))) count++
+    if (p.pattern === 'EVERY_DAY' || (p.activeDays || []).includes(isoDow(cur))) out.push(new Date(cur))
     cur.setUTCDate(cur.getUTCDate() + 1)
   }
-  return count
+  return out
+}
+
+/** Slots that apply on a given date, honoring per-day `day_key`. */
+function slotsForDate(date: Date, slots: any[], pattern: string): any[] {
+  const hasPerDay = slots.some((s) => s.day_key != null && s.day_key !== '')
+  if (!hasPerDay) return slots
+  const key = pattern === 'CUSTOM_DATES' ? dateKey(date) : String(isoDow(date))
+  return slots.filter((s) => String(s.day_key) === key)
 }
 
 Deno.serve(async (req) => {
@@ -48,13 +62,22 @@ Deno.serve(async (req) => {
     const userId = userData.user.id
 
     const p = await req.json()
-    const activeDays = countActiveDays(p)
+    const dates = activeDateList(p)
+    const activeDays = dates.length
     const slots = (p.slots || []).filter((s: any) => Number(s.amount) > 0)
     if (slots.length === 0) return json({ error: 'No valid send slots' }, 400)
     if (activeDays === 0) return json({ error: 'Schedule has no active days' }, 400)
 
+    // Sum across the real per-day mapping (slots may differ by day).
     let total = 0
-    for (const s of slots) total += (Number(s.amount) + sendFee(Number(s.amount))) * activeDays
+    let totalSends = 0
+    for (const date of dates) {
+      for (const s of slotsForDate(date, slots, p.pattern)) {
+        total += Number(s.amount) + sendFee(Number(s.amount))
+        totalSends += 1
+      }
+    }
+    if (totalSends === 0) return json({ error: 'No sends scheduled on any active day' }, 400)
 
     const { data: profile } = await supabase
       .from('users')
@@ -91,6 +114,7 @@ Deno.serve(async (req) => {
         send_time: s.send_time,
         amount: Number(s.amount),
         fee: sendFee(Number(s.amount)),
+        day_key: s.day_key ?? null,
         is_active: true,
       })),
     )
@@ -128,7 +152,7 @@ Deno.serve(async (req) => {
       scheduleId: schedule.id,
       depositId: deposit.id,
       activeDays,
-      breakdown: { total, activeDays, totalSends: slots.length * activeDays },
+      breakdown: { total, activeDays, totalSends },
       stk,
     })
   } catch (e) {

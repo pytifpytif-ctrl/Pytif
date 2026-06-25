@@ -5,6 +5,8 @@
 // IMPORTANT: Verify current Mpesa B2C rates on developer.safaricom.co.ke
 // before launch. These mirror the published rate bands as of the build brief.
 
+import { slotsForDate } from './schedule.js'
+
 export const WASTEL_FEE_PER_SEND = 5
 
 // [maxAmountInclusive, mpesaFee]
@@ -82,5 +84,44 @@ export function depositBreakdown(slots, activeDays) {
     serviceFees,
     totalFees,
     total,
+  }
+}
+
+/**
+ * Deposit breakdown across an explicit list of active dates, honoring per-day
+ * slots (each slot may carry a `day_key`). Works for uniform schedules too.
+ *
+ * @param {Date[]} activeDateList
+ * @param {Array<{amount:number, day_key?:string|null}>} slots
+ * @param {string} pattern
+ */
+export function depositBreakdownForDates(activeDateList, slots, pattern) {
+  const valid = slots.filter((s) => Number(s.amount) > 0)
+  let baseAmount = 0
+  let mpesaFees = 0
+  let serviceFees = 0
+  let totalSends = 0
+
+  for (const date of activeDateList) {
+    for (const slot of slotsForDate(date, valid, pattern)) {
+      const amount = Number(slot.amount) || 0
+      baseAmount += amount
+      mpesaFees += mpesaFeeFor(amount)
+      serviceFees += WASTEL_FEE_PER_SEND
+      totalSends += 1
+    }
+  }
+
+  const totalFees = mpesaFees + serviceFees
+  const activeDays = activeDateList.length
+  return {
+    activeDays,
+    totalSends,
+    sendsPerDay: activeDays ? Math.round((totalSends / activeDays) * 10) / 10 : 0,
+    baseAmount,
+    mpesaFees,
+    serviceFees,
+    totalFees,
+    total: baseAmount + totalFees,
   }
 }

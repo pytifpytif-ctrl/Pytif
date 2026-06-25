@@ -4,6 +4,7 @@ import { api } from '../lib/api.js'
 import { useScheduler } from '../hooks/useScheduler.js'
 import { ScreenHeader, Spinner, StatusBadge, Alert } from '../components/ui.jsx'
 import { formatKes, formatTime12, formatDateShort, formatDateLong, formatPhone } from '../lib/format.js'
+import { PATTERNS, WEEKDAY_LABELS, fromDateKey } from '../lib/schedule.js'
 
 export default function ScheduleDetail() {
   const { id } = useParams()
@@ -44,7 +45,7 @@ export default function ScheduleDetail() {
     : 0
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in mx-auto min-h-screen w-full max-w-4xl px-5 pb-16 pt-2 lg:px-8 lg:pt-8">
       <ScreenHeader
         title={schedule.name}
         subtitle={`To ${formatPhone(schedule.destination_mpesa)}`}
@@ -53,7 +54,7 @@ export default function ScheduleDetail() {
       />
 
       {/* Balance + progress */}
-      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 to-brand-800 p-6 text-white shadow-float">
+      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 to-brand-800 p-6 text-white shadow-float lg:p-8">
         <p className="text-sm text-brand-100">Locked balance remaining</p>
         <p className="mt-1 text-3xl font-extrabold">{formatKes(schedule.locked_balance)}</p>
         <div className="mt-4">
@@ -80,8 +81,10 @@ export default function ScheduleDetail() {
         </button>
       )}
 
+      <div className="mt-8 grid gap-8 lg:grid-cols-2 lg:items-start">
+      <div className="space-y-8">
       {/* Today's sends */}
-      <section className="mt-8">
+      <section>
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-muted">Today&apos;s sends</h2>
         {todaySends.length === 0 ? (
           <div className="card p-5 text-sm text-ink-muted">No sends scheduled for today.</div>
@@ -95,23 +98,15 @@ export default function ScheduleDetail() {
       </section>
 
       {/* Slots overview */}
-      <section className="mt-8">
+      <section>
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-muted">Daily template</h2>
-        <div className="card divide-y divide-slate-100">
-          {slots.map((s) => (
-            <div key={s.id} className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-3">
-                <span className="font-bold text-brand-700">{formatTime12(s.send_time)}</span>
-                <span className="text-sm text-ink-muted">{s.label || '—'}</span>
-              </div>
-              <span className="font-semibold text-ink">{formatKes(s.amount)}</span>
-            </div>
-          ))}
-        </div>
+        <DailyTemplate slots={slots} pattern={schedule.pattern} />
       </section>
+      </div>
 
+      <div className="space-y-8">
       {/* Full history */}
-      <section className="mt-8">
+      <section>
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-muted">Send history</h2>
         {transactions.length === 0 ? (
           <div className="card p-5 text-sm text-ink-muted">No sends yet.</div>
@@ -140,7 +135,7 @@ export default function ScheduleDetail() {
 
       {/* Cancel / support */}
       {schedule.status === 'ACTIVE' && (
-        <section className="mt-8">
+        <section>
           {cancelDone ? (
             <Alert kind="success">
               Your cancellation request was sent to support for manual review. Funds stay locked until reviewed.
@@ -174,8 +169,52 @@ export default function ScheduleDetail() {
           )}
         </section>
       )}
+      </div>
+      </div>
 
       <p className="mt-8 text-center text-xs text-ink-muted">Created {formatDateLong(schedule.created_at)}</p>
+    </div>
+  )
+}
+
+function SlotTable({ slots }) {
+  return (
+    <div className="card divide-y divide-slate-100">
+      {slots.map((s) => (
+        <div key={s.id} className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-3">
+            <span className="font-bold text-brand-700">{formatTime12(s.send_time)}</span>
+            <span className="text-sm text-ink-muted">{s.label || '—'}</span>
+          </div>
+          <span className="font-semibold text-ink">{formatKes(s.amount)}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function DailyTemplate({ slots, pattern }) {
+  const perDay = slots.some((s) => s.day_key != null && s.day_key !== '')
+  if (!perDay) return <SlotTable slots={slots} />
+
+  const groups = {}
+  for (const s of slots) (groups[String(s.day_key)] = groups[String(s.day_key)] || []).push(s)
+  const orderedKeys = Object.keys(groups).sort((a, b) =>
+    pattern === PATTERNS.CUSTOM_DATES ? (a < b ? -1 : 1) : Number(a) - Number(b),
+  )
+  const labelFor = (key) =>
+    pattern === PATTERNS.CUSTOM_DATES
+      ? formatDateShort(fromDateKey(key))
+      : WEEKDAY_LABELS.find((w) => String(w.iso) === key)?.long || key
+
+  return (
+    <div className="space-y-4">
+      {orderedKeys.map((key) => (
+        <div key={key}>
+          <p className="mb-1.5 text-xs font-semibold text-ink-soft">{labelFor(key)}</p>
+          <SlotTable slots={[...groups[key]].sort((a, b) => (a.send_time < b.send_time ? -1 : 1))} />
+        </div>
+      ))}
     </div>
   )
 }

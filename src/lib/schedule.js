@@ -89,17 +89,37 @@ export function computeActiveDates({ pattern, activeDays = [], activeDates = [],
 }
 
 /**
+ * The day-key a slot is bound to, for per-day schedules:
+ *  - SPECIFIC_DAYS: the ISO weekday as a string ("1".."7")
+ *  - CUSTOM_DATES:  the date key "YYYY-MM-DD"
+ *  - uniform (every day / no per-day): null
+ */
+export function dayKeyForDate(date, pattern) {
+  if (pattern === PATTERNS.CUSTOM_DATES) return toDateKey(date)
+  return String(isoDayOfWeek(date))
+}
+
+/** Returns the slots that apply on a given date, honoring per-day `day_key`. */
+export function slotsForDate(date, slots, pattern) {
+  const hasPerDay = slots.some((s) => s.day_key != null && s.day_key !== '')
+  if (!hasPerDay) return slots
+  const key = dayKeyForDate(date, pattern)
+  return slots.filter((s) => String(s.day_key) === key)
+}
+
+/**
  * Pre-generate transaction records (the scheduler just fires PENDING rows).
  * Returns plain objects without ids — the data layer assigns those.
  *
  * @param {Date[]} activeDateList
- * @param {Array<{id, send_time, amount, fee, label}>} slots
+ * @param {Array<{id, send_time, amount, fee, label, day_key}>} slots
+ * @param {string} [pattern] - needed to map per-day `day_key`s
  */
-export function generateTransactions(activeDateList, slots) {
+export function generateTransactions(activeDateList, slots, pattern) {
   const txns = []
   const activeSlots = slots.filter((s) => Number(s.amount) > 0 && s.is_active !== false)
   for (const date of activeDateList) {
-    for (const slot of activeSlots) {
+    for (const slot of slotsForDate(date, activeSlots, pattern)) {
       const [h, m] = String(slot.send_time).split(':').map(Number)
       const scheduledFor = new Date(date)
       scheduledFor.setHours(h || 0, m || 0, 0, 0)

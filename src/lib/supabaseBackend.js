@@ -289,7 +289,7 @@ async function getRecycleDraft(scheduleId) {
     activeDates: schedule.active_dates,
     destination: schedule.destination_mpesa,
     recycledFrom: schedule.id,
-    slots: slots.map((s) => ({ send_time: s.send_time, amount: s.amount, label: s.label })),
+    slots: slots.map((s) => ({ send_time: s.send_time, amount: s.amount, label: s.label, day_key: s.day_key ?? null })),
   }
 }
 

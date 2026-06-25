@@ -96,7 +96,7 @@ export function GoogleButton({ onClick, disabled, label = 'Continue with Google'
 
 export function ScreenHeader({ title, subtitle, back, right }) {
   return (
-    <header className="sticky top-0 z-20 -mx-5 mb-5 border-b border-slate-100 bg-[#f4f6fa]/90 px-5 py-4 backdrop-blur">
+    <header className="sticky top-0 z-20 -mx-5 mb-5 border-b border-slate-100 bg-[#f4f6fa]/90 px-5 py-4 backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-2 lg:backdrop-blur-none">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           {back && (
@@ -111,7 +111,7 @@ export function ScreenHeader({ title, subtitle, back, right }) {
             </Link>
           )}
           <div>
-            <h1 className="text-lg font-bold leading-tight text-ink">{title}</h1>
+            <h1 className="text-lg font-bold leading-tight text-ink lg:text-2xl">{title}</h1>
             {subtitle && <p className="text-sm text-ink-muted">{subtitle}</p>}
           </div>
         </div>

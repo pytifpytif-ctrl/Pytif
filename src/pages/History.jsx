@@ -60,7 +60,7 @@ export default function History() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in mx-auto max-w-2xl">
       <ScreenHeader title="Transaction history" subtitle={`${formatKes(sentTotal)} sent · ${filtered.length} records`} />
 
       {/* Status filter chips */}
@@ -79,8 +79,8 @@ export default function History() {
       </div>
 
       {/* Schedule + date filters */}
-      <div className="card mb-5 space-y-3 p-4">
-        <select className="field py-2.5" value={scheduleId} onChange={(e) => setScheduleId(e.target.value)}>
+      <div className="card mb-5 space-y-3 p-4 sm:flex sm:items-center sm:gap-3 sm:space-y-0">
+        <select className="field py-2.5 sm:flex-1" value={scheduleId} onChange={(e) => setScheduleId(e.target.value)}>
           <option value="ALL">All schedules</option>
           {schedules.map((s) => (
             <option key={s.id} value={s.id}>
@@ -88,7 +88,7 @@ export default function History() {
             </option>
           ))}
         </select>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:flex-1">
           <input
             type="date"
             className="field py-2.5"
