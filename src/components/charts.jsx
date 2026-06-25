@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Icon } from './icons.jsx'
 
 /** Animated circular progress ring. */
-export function Gauge({ value = 0, max = 1, size = 132, stroke = 12, center }) {
+export function Gauge({ value = 0, max = 1, size = 132, stroke = 11, center }) {
   const pct = max > 0 ? Math.min(1, value / max) : 0
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
@@ -15,9 +15,9 @@ export function Gauge({ value = 0, max = 1, size = 132, stroke = 12, center }) {
   }, [c, pct])
 
   return (
-    <div className="relative grid place-items-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" className="text-white/15" strokeWidth={stroke} />
+    <div className="relative grid shrink-0 place-items-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90 drop-shadow-[0_0_10px_rgba(255,255,255,0.4)]">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" className="text-black/15" strokeWidth={stroke} />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -32,8 +32,8 @@ export function Gauge({ value = 0, max = 1, size = 132, stroke = 12, center }) {
         />
         <defs>
           <linearGradient id="gaugeGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#00e0a8" />
-            <stop offset="100%" stopColor="#9be8d2" />
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="100%" stopColor="#ffffff" />
           </linearGradient>
         </defs>
       </svg>
@@ -60,7 +60,7 @@ export function MiniBars({ data = [], height = 120, accentIndex }) {
           <div key={i} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
             <div className="flex w-full flex-1 items-end justify-center">
               <div
-                className={`w-full max-w-[18px] rounded-md ${active ? 'bg-brand-500' : 'bg-brand-500/25'}`}
+                className={`w-full max-w-[18px] rounded-md ${active ? 'bg-orange-500' : 'bg-orange-500/20'}`}
                 style={{ height: h, transition: `height 0.7s cubic-bezier(0.22,1,0.36,1) ${i * 60}ms` }}
                 title={`${d.label}: ${d.value}`}
               />
@@ -93,14 +93,18 @@ export function SegmentBar({ segments = [] }) {
 /** Circular quick-action button with a label underneath. */
 export function QuickAction({ icon, label, to, onClick, tone = 'brand' }) {
   const tones = {
-    brand: 'bg-brand-500/12 text-brand-600 dark:text-brand-300 group-hover:bg-brand-500 group-hover:text-white',
-    accent: 'bg-accent-500/12 text-accent-600 dark:text-accent-300 group-hover:bg-accent-500 group-hover:text-white',
-    neutral: 'bg-surface-soft text-ink-soft group-hover:bg-ink group-hover:text-app',
+    brand: 'bg-brand-600',
+    accent: 'bg-accent-500',
+    violet: 'bg-violet-500',
+    sky: 'bg-sky-500',
+    flame: 'bg-orange-500',
   }
   const inner = (
-    <span className="group flex flex-col items-center gap-2">
-      <span className={`grid h-12 w-12 place-items-center rounded-2xl transition-all duration-200 group-hover:-translate-y-0.5 ${tones[tone]}`}>
-        <Icon name={icon} size={20} strokeWidth={2.1} />
+    <span className="group flex flex-col items-center gap-2.5">
+      <span
+        className={`grid h-14 w-14 place-items-center rounded-2xl text-white shadow-sm transition-transform duration-200 group-hover:-translate-y-0.5 ${tones[tone] || tones.brand}`}
+      >
+        <Icon name={icon} size={22} strokeWidth={2.2} />
       </span>
       <span className="text-xs font-semibold text-ink-soft">{label}</span>
     </span>

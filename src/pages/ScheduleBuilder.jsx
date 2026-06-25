@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { api } from '../lib/api.js'
 import { Spinner, Alert, StatusBadge } from '../components/ui.jsx'
+import { Icon } from '../components/icons.jsx'
 import TimeWheel from '../components/TimeWheel.jsx'
 import MonthCalendar from '../components/MonthCalendar.jsx'
 import {
@@ -225,6 +226,8 @@ export default function ScheduleBuilder() {
       </div>
     )
   }
+
+  if (!destination) return <NeedsNumber navigate={navigate} />
 
   if (phase === 'stk') return <StkWaiting total={breakdown.total} number={destination} />
   if (phase === 'success') return <SuccessScreen result={result} navigate={navigate} />
@@ -803,6 +806,29 @@ function Row({ k, v }) {
 }
 
 /* ----------------- STK + Success ----------------- */
+
+function NeedsNumber({ navigate }) {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-app px-8 text-center">
+      <div className="mb-6 grid h-20 w-20 place-items-center rounded-3xl bg-orange-500 text-white">
+        <Icon name="phone" size={34} />
+      </div>
+      <h1 className="text-2xl font-extrabold text-ink">Add your M-Pesa number first</h1>
+      <p className="mt-2 max-w-xs text-ink-muted">
+        Pytif needs a verified payout number before you can lock money. Set it up in Settings — it takes a minute.
+      </p>
+      <div className="mt-8 w-full max-w-xs space-y-3">
+        <button className="btn-primary w-full" onClick={() => navigate('/app/settings')}>
+          <Icon name="settings" size={18} />
+          Go to Settings
+        </button>
+        <button className="btn-ghost w-full" onClick={() => navigate('/app')}>
+          Back to home
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function StkWaiting({ total, number }) {
   return (

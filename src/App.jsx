@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import { Spinner } from './components/ui.jsx'
 import AppLayout from './components/AppLayout.jsx'
@@ -6,17 +6,17 @@ import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import ForgotPassword from './pages/ForgotPassword.jsx'
 import ResetPassword from './pages/ResetPassword.jsx'
-import Onboarding from './pages/Onboarding.jsx'
+import Landing from './pages/Landing.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import ScheduleBuilder from './pages/ScheduleBuilder.jsx'
 import ScheduleDetail from './pages/ScheduleDetail.jsx'
 import History from './pages/History.jsx'
+import Settings from './pages/Settings.jsx'
 import Terms from './pages/Terms.jsx'
 import Privacy from './pages/Privacy.jsx'
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth()
-  const location = useLocation()
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-brand-600">
@@ -25,11 +25,6 @@ function RequireAuth({ children }) {
     )
   }
   if (!user) return <Navigate to="/login" replace />
-  // Google users (and anyone missing an Mpesa number) must complete onboarding
-  // before they can use the app — the product can't send money without it.
-  if (user.needs_onboarding && location.pathname !== '/app/onboarding') {
-    return <Navigate to="/app/onboarding" replace />
-  }
   return children
 }
 
@@ -66,14 +61,8 @@ export default function App() {
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/privacy-policy" element={<Privacy />} />
 
-      <Route
-        path="/app/onboarding"
-        element={
-          <RequireAuth>
-            <Onboarding />
-          </RequireAuth>
-        }
-      />
+      {/* Old onboarding path now lives in Settings */}
+      <Route path="/app/onboarding" element={<Navigate to="/app/settings" replace />} />
 
       <Route
         path="/app"
@@ -85,6 +74,7 @@ export default function App() {
       >
         <Route index element={<Dashboard />} />
         <Route path="history" element={<History />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
 
       {/* Full-screen flows (no bottom nav) */}
@@ -113,8 +103,8 @@ export default function App() {
         }
       />
 
-      <Route path="/" element={<Navigate to="/app" replace />} />
-      <Route path="*" element={<Navigate to="/app" replace />} />
+      <Route path="/" element={<Landing />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

@@ -54,11 +54,11 @@ export default function ScheduleDetail() {
       />
 
       {/* Balance + progress */}
-      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 to-brand-800 p-6 text-white shadow-float lg:p-8">
-        <p className="text-sm text-brand-100">Locked balance remaining</p>
-        <p className="mt-1 text-3xl font-extrabold">{formatKes(schedule.locked_balance)}</p>
+      <section className="overflow-hidden rounded-3xl bg-orange-500 p-6 text-white lg:p-8">
+        <p className="text-xs font-medium uppercase tracking-wide text-orange-100">Locked balance remaining</p>
+        <p className="mt-1.5 text-3xl font-extrabold">{formatKes(schedule.locked_balance)}</p>
         <div className="mt-4">
-          <div className="mb-1.5 flex justify-between text-xs text-brand-100">
+          <div className="mb-1.5 flex justify-between text-xs text-orange-100">
             <span>
               {schedule.days_completed} / {schedule.total_days} days
             </span>

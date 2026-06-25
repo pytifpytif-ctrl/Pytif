@@ -86,7 +86,7 @@ export async function b2cPayment(opts: { amount: number; phone: string; remarks:
       SecurityCredential: env('MPESA_B2C_SECURITY_CREDENTIAL'),
       CommandID: 'BusinessPayment',
       Amount: opts.amount,
-      PartyA: env('MPESA_SHORTCODE'),
+      PartyA: Deno.env.get('MPESA_B2C_SHORTCODE') || env('MPESA_SHORTCODE'),
       PartyB: toMsisdn(opts.phone),
       Remarks: opts.remarks.slice(0, 100),
       QueueTimeOutURL: env('MPESA_B2C_QUEUE_TIMEOUT_URL'),

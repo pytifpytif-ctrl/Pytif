@@ -14,19 +14,19 @@ export default {
           raised: 'rgb(var(--surface-raised) / <alpha-value>)',
         },
         line: 'rgb(var(--line) / <alpha-value>)',
-        // Primary — deep electric blue (#1B4FDB at 600). Trust, stability.
+        // Primary — sharp orange (#F97316 at 500). Matches the orange-* scale exactly.
         brand: {
-          50: '#eef3fe',
-          100: '#d9e4fd',
-          200: '#b9ccfb',
-          300: '#8aa9f7',
-          400: '#547df1',
-          500: '#2f5be7',
-          600: '#1b4fdb',
-          700: '#1740b8',
-          800: '#183a95',
-          900: '#193576',
-          950: '#122150',
+          50: '#fff7ed',
+          100: '#ffedd5',
+          200: '#fed7aa',
+          300: '#fdba74',
+          400: '#fb923c',
+          500: '#f97316',
+          600: '#ea580c',
+          700: '#c2410c',
+          800: '#9a3412',
+          900: '#7c2d12',
+          950: '#431407',
         },
         // Accent — clean emerald green (#00C896 at 500). Money arriving, success.
         accent: {
@@ -55,8 +55,8 @@ export default {
       },
       boxShadow: {
         card: '0 1px 2px rgba(13,19,33,0.04), 0 8px 24px rgba(13,19,33,0.06)',
-        float: '0 12px 40px rgba(27,79,219,0.18)',
-        glow: '0 0 0 1px rgba(255,255,255,0.04), 0 18px 50px -12px rgba(27,79,219,0.45)',
+        float: '0 12px 40px rgba(234,88,12,0.16)',
+        glow: '0 0 0 1px rgba(255,255,255,0.04), 0 18px 50px -12px rgba(234,88,12,0.4)',
       },
       keyframes: {
         'fade-in': {

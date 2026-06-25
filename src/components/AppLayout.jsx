@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 const tabs = [
   { to: '/app', label: 'Home', end: true, icon: 'home' },
   { to: '/app/history', label: 'History', icon: 'history' },
+  { to: '/app/settings', label: 'Settings', icon: 'settings' },
 ]
 
 export default function AppLayout() {

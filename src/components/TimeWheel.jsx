@@ -29,7 +29,7 @@ function Stepper({ label, display, onUp, onDown }) {
           <path d="M6 15l6-6 6 6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      <div className="my-1 grid h-16 w-20 place-items-center rounded-2xl bg-brand-500/10 text-3xl font-extrabold tabular-nums text-brand-600 dark:text-brand-300">
+      <div className="my-1 grid h-16 w-20 place-items-center rounded-2xl bg-orange-500/10 text-3xl font-extrabold tabular-nums text-orange-600 dark:text-orange-300">
         {display}
       </div>
       <button
@@ -90,7 +90,7 @@ export default function TimeWheel({ open, value, onClose, onConfirm }) {
                 type="button"
                 onClick={() => setState((s) => ({ ...s, period: p }))}
                 className={`press h-12 w-16 rounded-xl text-base font-bold transition ${
-                  state.period === p ? 'bg-brand-600 text-white shadow-float' : 'bg-surface-soft text-ink-soft'
+                  state.period === p ? 'bg-orange-500 text-white' : 'bg-surface-soft text-ink-soft'
                 }`}
               >
                 {p}
