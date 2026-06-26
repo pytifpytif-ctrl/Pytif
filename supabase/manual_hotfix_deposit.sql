@@ -1,6 +1,5 @@
--- Fix deposit/transaction guards blocked for edge functions (service role).
--- 0012 used request.jwt.claim.role, which is not set for the service-role client.
--- 0008 already fixed other guards with auth.role(); apply the same here.
+-- Run once in Supabase Dashboard → SQL Editor if STK / create-schedule fails with
+-- "Deposits are managed by the server".
 
 create or replace function public.guard_deposits_mutation()
 returns trigger

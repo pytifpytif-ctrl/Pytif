@@ -48,8 +48,29 @@ $$;
 revoke all on function public.abandon_unpaid_schedule(uuid) from public, anon, authenticated;
 grant execute on function public.abandon_unpaid_schedule(uuid) to service_role;
 
--- Remove existing unpaid drafts (migration runs as superuser; bypass guard trigger briefly).
+-- Remove existing unpaid drafts (migration runs as superuser; bypass guard triggers briefly).
+alter table public.deposits disable trigger guard_deposits_mutation;
+alter table public.send_slots disable trigger guard_send_slots_mutation;
 alter table public.schedules disable trigger guard_schedules_mutation;
+
+delete from public.deposits d
+where d.status = 'PENDING'::deposit_status
+  and exists (
+    select 1 from public.schedules s
+    where s.id = d.schedule_id
+      and s.status = 'PAUSED'::schedule_status
+      and coalesce(s.total_deposited, 0) = 0
+      and coalesce(s.locked_balance, 0) = 0
+  );
+
+delete from public.send_slots ss
+where exists (
+  select 1 from public.schedules s
+  where s.id = ss.schedule_id
+    and s.status = 'PAUSED'::schedule_status
+    and coalesce(s.total_deposited, 0) = 0
+    and coalesce(s.locked_balance, 0) = 0
+);
 
 delete from public.schedules s
 where s.status = 'PAUSED'::schedule_status
@@ -62,4 +83,6 @@ where s.status = 'PAUSED'::schedule_status
       and d.status = 'CONFIRMED'::deposit_status
   );
 
+alter table public.deposits enable trigger guard_deposits_mutation;
+alter table public.send_slots enable trigger guard_send_slots_mutation;
 alter table public.schedules enable trigger guard_schedules_mutation;
