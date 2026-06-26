@@ -4,6 +4,7 @@ import { api } from '../lib/api.js'
 import { maskEmail } from '../lib/format.js'
 import { Icon } from './icons.jsx'
 import { Spinner } from './ui.jsx'
+import EmailSentNotice from './EmailSentNotice.jsx'
 
 function resetLinkPath(devResetUrl) {
   try {
@@ -55,44 +56,33 @@ export default function ForgotPasscodeLink({ email, className = '', variant = 'l
     if (variant === 'row') {
       return (
         <div className={className}>
-          <div className="flex items-start gap-2.5 rounded-xl border border-accent-500/25 bg-accent-500/8 px-3 py-2.5">
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-accent-500/15 text-accent-600 dark:text-accent-300">
-              <Icon name="mail" size={14} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-ink">
-                {emailed ? 'Check your email' : 'Reset link ready'}
-              </p>
-              <p className="mt-0.5 text-[11px] leading-snug text-ink-muted">
-                {emailed ? (
-                  <>
-                    We sent a reset link to{' '}
-                    <span className="font-semibold text-ink">{maskEmail(email)}</span>. Open it on
-                    this device, then set a new passcode.
-                  </>
-                ) : (
-                  <>Email is not configured yet. Use the link below on this device.</>
-                )}
-              </p>
-              {devResetUrl && <DevResetLink devResetUrl={devResetUrl} className="mt-2 text-[11px]" />}
-            </div>
-          </div>
+          <EmailSentNotice compact>
+            {emailed ? (
+              <>
+                We sent a reset link to <strong>{maskEmail(email)}</strong>. Open it on this device, then set a new
+                passcode.
+              </>
+            ) : (
+              <>Email is not configured yet. Use the link below on this device.</>
+            )}
+          </EmailSentNotice>
+          {devResetUrl && <DevResetLink devResetUrl={devResetUrl} className="mt-2 text-[11px]" />}
         </div>
       )
     }
 
     return (
-      <div className={`text-center ${className}`}>
-        <p className="text-sm text-ink-muted">
+      <div className={`animate-fade-in ${className}`}>
+        <EmailSentNotice>
           {emailed ? (
             <>
-              We sent a reset link to <span className="font-semibold text-ink">{maskEmail(email)}</span>.
-              Open it on this device, then choose a new passcode.
+              We sent a reset link to <strong>{maskEmail(email)}</strong>. Open it on this device, then choose a
+              new passcode.
             </>
           ) : (
             'Reset link ready. Open it on this device, then choose a new passcode.'
           )}
-        </p>
+        </EmailSentNotice>
         {devResetUrl && <DevResetLink devResetUrl={devResetUrl} className="mt-2 text-sm" />}
       </div>
     )

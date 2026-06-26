@@ -6,13 +6,14 @@ import { useBalance } from '../context/BalanceContext.jsx'
 import { ScreenHeader, Spinner, EmptyState } from '../components/ui.jsx'
 import { Icon } from '../components/icons.jsx'
 import { DayChart } from '../components/charts.jsx'
-import { formatKes, formatKesPlain } from '../lib/format.js'
+import { formatKes, formatKesPlain, toLocalDayKey, formatDateKeyShort } from '../lib/format.js'
 
 /** Sum `amount` per calendar day, ascending, keeping the most recent `limit` days. */
 function groupByDay(items, dateField, limit = 12) {
   const map = {}
   for (const it of items) {
-    const day = String(it[dateField]).slice(0, 10)
+    const day = toLocalDayKey(it[dateField])
+    if (!day) continue
     map[day] = (map[day] || 0) + (Number(it.amount) || 0)
   }
   return Object.entries(map)
@@ -22,8 +23,7 @@ function groupByDay(items, dateField, limit = 12) {
 }
 
 function dayLabel(day) {
-  const d = new Date(`${day}T12:00:00`)
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  return formatDateKeyShort(day)
 }
 
 export default function Analytics() {
@@ -166,7 +166,16 @@ function ChartCard({ icon, tone, title, subtitle, total, data, mask }) {
       ) : (
         <div className="min-h-0 flex-1">
           <div className="h-full lg:hidden">
-            <DayChart data={data} height={140} tone={tone} formatValue={fmtAxisY} formatTip={fmtAxisTip} fill />
+            <DayChart
+              data={data}
+              height={140}
+              tone={tone}
+              formatValue={fmtAxisY}
+              formatTip={fmtAxisTip}
+              fill
+              verticalXLabels
+              maxXLabels={6}
+            />
           </div>
           <div className="hidden lg:block">
             <DayChart data={data} height={200} tone={tone} formatValue={fmtAxisY} formatTip={fmtAxisTip} />

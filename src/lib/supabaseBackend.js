@@ -11,7 +11,7 @@
 
 import { supabase } from './supabaseClient.js'
 import { depositBreakdown, feeFor } from './fees.js'
-import { isRealPhone } from './format.js'
+import { isRealPhone, localDayRange, startOfTodayKey } from './format.js'
 
 function normalizePhone(num) {
   let digits = String(num || '').replace(/\D/g, '')
@@ -448,16 +448,13 @@ async function getDashboard() {
     .filter((s) => s.status === 'ACTIVE')
     .reduce((sum, s) => sum + s.locked_balance, 0)
 
-  const start = new Date()
-  start.setHours(0, 0, 0, 0)
-  const end = new Date(start)
-  end.setDate(end.getDate() + 1)
+  const { start, end } = localDayRange(startOfTodayKey())
 
   const { data: today } = await supabase
     .from('transactions')
     .select('*, schedules(name)')
-    .gte('scheduled_for', start.toISOString())
-    .lt('scheduled_for', end.toISOString())
+    .gte('scheduled_for', start)
+    .lt('scheduled_for', end)
     .order('scheduled_for', { ascending: true })
 
   const upcomingToday = (today || []).map((t) => ({ ...t, schedule_name: t.schedules?.name }))
@@ -465,7 +462,7 @@ async function getDashboard() {
   const { data: up } = await supabase
     .from('transactions')
     .select('*, schedules(name)')
-    .eq('status', 'PENDING')
+    .in('status', ['PENDING', 'PENDING_B2C_CONFIRM'])
     .gte('scheduled_for', new Date().toISOString())
     .order('scheduled_for', { ascending: true })
     .limit(30)

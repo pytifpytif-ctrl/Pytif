@@ -4,9 +4,11 @@ import { api } from '../lib/api.js'
 import { useCachedQuery } from '../hooks/useCachedQuery.js'
 import { useScheduler } from '../hooks/useScheduler.js'
 import { useBalance } from '../context/BalanceContext.jsx'
-import { ScreenHeader, Spinner, StatusBadge, EmptyState } from '../components/ui.jsx'
+import { ScreenHeader, Spinner, EmptyState } from '../components/ui.jsx'
 import { Icon } from '../components/icons.jsx'
-import { formatKes, formatDateShort, formatDateLong, formatTime12 } from '../lib/format.js'
+import { formatKes, formatDateShort, formatDateLong, formatLocalTime, toLocalDayKey } from '../lib/format.js'
+import { fromDateKey } from '../lib/schedule.js'
+import { buildNotificationEvents } from '../lib/moneyEvents.js'
 
 const READ_KEY = 'jiokoe-notifs-read'
 
@@ -62,31 +64,10 @@ export default function Notifications() {
     })
   }, [])
 
-  const allEvents = useMemo(() => {
-    const inEvents = (deposits ?? []).map((d) => ({
-      id: `dep-${d.id}`,
-      kind: 'IN',
-      when: d.created_at,
-      amount: d.amount,
-      status: d.status,
-      title: 'Wallet funded',
-      detail: `Locked into ${d.schedule_name}`,
-      schedule: d.schedule_name,
-      reference: d.mpesa_reference,
-    }))
-    const outEvents = (txns ?? []).map((t) => ({
-      id: `txn-${t.id}`,
-      kind: 'OUT',
-      when: t.scheduled_for,
-      amount: t.amount,
-      status: t.status,
-      title: t.label || 'Payout to your M-Pesa',
-      detail: t.schedule_name,
-      schedule: t.schedule_name,
-      reference: t.mpesa_reference,
-    }))
-    return [...inEvents, ...outEvents].sort((a, b) => new Date(b.when) - new Date(a.when))
-  }, [deposits, txns])
+  const allEvents = useMemo(
+    () => buildNotificationEvents(deposits ?? [], txns ?? []),
+    [deposits, txns],
+  )
 
   const events = useMemo(
     () => allEvents.filter((e) => filter === 'ALL' || e.kind === filter),
@@ -96,7 +77,8 @@ export default function Notifications() {
   const grouped = useMemo(() => {
     const map = {}
     for (const e of events) {
-      const day = String(e.when).slice(0, 10)
+      const day = toLocalDayKey(e.when)
+      if (!day) continue
       ;(map[day] = map[day] || []).push(e)
     }
     return Object.entries(map).sort((a, b) => (a[0] < b[0] ? 1 : -1))
@@ -138,7 +120,7 @@ export default function Notifications() {
   }
 
   const totalIn = (deposits ?? []).filter((d) => d.status === 'CONFIRMED').reduce((s, d) => s + d.amount, 0)
-  const totalOut = (txns ?? []).filter((t) => t.status === 'SUCCESS').reduce((s, t) => s + t.amount, 0)
+  const totalOut = allEvents.filter((e) => e.kind === 'OUT').reduce((s, e) => s + e.amount, 0)
 
   if (loading) {
     return (
@@ -161,7 +143,7 @@ export default function Notifications() {
           compact
           dense
           title="Notifications"
-          subtitle={unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+          subtitle={unreadCount > 0 ? `${unreadCount} unread` : 'Your money movement log'}
           back="/app"
           hideBackOnDesktop
           right={
@@ -220,12 +202,14 @@ export default function Notifications() {
 
       <div className="no-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pb-[calc(6rem+env(safe-area-inset-bottom,0px))] pt-3 lg:pb-0 lg:pt-4">
         {events.length === 0 ? (
-          <EmptyState icon="bell" title="Nothing here yet" subtitle="Deposits and payouts will appear here in detail." />
+          <EmptyState icon="bell" title="Nothing here yet" subtitle="Successful top-ups and payouts will show here as they happen." />
         ) : (
           <div className="space-y-5">
             {grouped.map(([day, list]) => (
               <div key={day}>
-                <p className="mb-2 px-1 text-xs font-bold uppercase tracking-wide text-ink-muted">{formatDateShort(day)}</p>
+                <p className="mb-2 px-1 text-xs font-bold uppercase tracking-wide text-ink-muted">
+                  {formatDateShort(fromDateKey(day))}
+                </p>
                 <div className="card divide-y divide-line">
                   {list.map((e) => (
                     <EventRow key={e.id} e={e} mask={mask} unread={!readIds.has(e.id)} onClick={() => openEvent(e)} />
@@ -242,18 +226,15 @@ export default function Notifications() {
   )
 }
 
-const EVENT_STATUS = {
-  CONFIRMED: { label: 'Confirmed', cls: 'text-accent-600 dark:text-accent-300' },
-  SUCCESS: { label: 'Sent', cls: 'text-accent-600 dark:text-accent-300' },
-  PENDING: { label: 'Pending', cls: 'text-amber-600 dark:text-amber-400' },
-  PENDING_B2C_CONFIRM: { label: 'Sending…', cls: 'text-amber-600 dark:text-amber-400' },
-  FAILED: { label: 'Failed', cls: 'text-rose-500' },
+const EVENT_KIND = {
+  IN: { label: 'Money in', cls: 'text-accent-600 dark:text-accent-300' },
+  OUT: { label: 'Paid out', cls: 'text-orange-600 dark:text-orange-300' },
 }
 
 function EventRow({ e, mask, unread, onClick }) {
   const isIn = e.kind === 'IN'
-  const time = formatTime12(new Date(e.when).toTimeString().slice(0, 5))
-  const st = EVENT_STATUS[e.status] || EVENT_STATUS.PENDING
+  const time = formatLocalTime(e.when)
+  const kind = EVENT_KIND[e.kind]
   return (
     <button
       type="button"
@@ -280,7 +261,7 @@ function EventRow({ e, mask, unread, onClick }) {
       </div>
       <div className="shrink-0 text-right">
         <p className="whitespace-nowrap text-sm font-bold tabular-nums text-ink">{mask(formatKes(e.amount))}</p>
-        <p className={`whitespace-nowrap text-[11px] font-medium ${st.cls}`}>{st.label}</p>
+        <p className={`whitespace-nowrap text-[11px] font-medium ${kind.cls}`}>{kind.label}</p>
       </div>
     </button>
   )
@@ -341,10 +322,9 @@ function DetailModal({ e, mask, onClose }) {
         </div>
 
         <dl className="mt-3 space-y-2 border-t border-line pt-3 text-xs">
-          <Detail label="Direction" value={isIn ? 'Money in' : 'Payout to your M-Pesa'} />
-          <Detail label="Status" value={<StatusBadge status={e.status} />} />
+          <Detail label="Direction" value={isIn ? 'Money in' : 'Paid out to your M-Pesa'} />
           <Detail label="Schedule" value={e.schedule} />
-          <Detail label="Date" value={`${formatDateLong(e.when)} · ${formatTime12(new Date(e.when).toTimeString().slice(0, 5))}`} />
+          <Detail label="Date" value={`${formatDateLong(e.when)} · ${formatLocalTime(e.when)}`} />
           <Detail label="Reference" value={e.reference || '—'} />
         </dl>
       </div>

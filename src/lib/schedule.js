@@ -1,5 +1,14 @@
 // Schedule date math. Days of week use ISO numbering: Mon=1 ... Sun=7
 // to match the schema's active_days int[].
+// All calendar dates and send times use Africa/Nairobi (see format.js).
+
+import {
+  APP_TZ_OFFSET,
+  getLocalDayOfWeek,
+  localTimeParts,
+  startOfTodayKey,
+  toLocalDayKey,
+} from './format.js'
 
 export const PATTERNS = {
   EVERY_DAY: 'EVERY_DAY',
@@ -23,35 +32,35 @@ export const WEEKDAY_LABELS = [
   { iso: 7, short: 'Sun', long: 'Sunday' },
 ]
 
-/** JS getDay() (Sun=0..Sat=6) -> ISO (Mon=1..Sun=7) */
+/** JS getDay() (Sun=0..Sat=6) -> ISO (Mon=1..Sun=7) in app timezone. */
 export function isoDayOfWeek(date) {
-  const js = date.getDay()
+  const js = getLocalDayOfWeek(date)
   return js === 0 ? 7 : js
 }
 
-/** Returns YYYY-MM-DD for a Date (local). */
+/** Returns YYYY-MM-DD for a Date or date key in app timezone. */
 export function toDateKey(date) {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) return date
+  return toLocalDayKey(date)
 }
 
+/** Parse YYYY-MM-DD as noon in app timezone (stable for calendar math). */
 export function fromDateKey(key) {
-  const [y, m, d] = key.split('-').map(Number)
-  return new Date(y, m - 1, d)
+  return new Date(`${key}T12:00:00${APP_TZ_OFFSET}`)
 }
 
 export function addDays(date, days) {
-  const d = new Date(date)
-  d.setDate(d.getDate() + days)
-  return d
+  const key = toDateKey(date)
+  const [y, m, d] = key.split('-').map(Number)
+  const next = new Date(Date.UTC(y, m - 1, d + days))
+  return fromDateKey(
+    `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`,
+  )
 }
 
+/** Midnight today in app timezone, as a Date anchor. */
 export function startOfToday() {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d
+  return fromDateKey(startOfTodayKey())
 }
 
 /** Sends must be at least this far in the future (matches TimeWheel 5-min steps). */
@@ -80,17 +89,12 @@ export function clampTimeToMin(time, minTime) {
 
 /** Earliest selectable HH:MM on `dateKey` when it is today; otherwise null. */
 export function earliestAllowedTimeForDate(dateKey, now = new Date()) {
-  if (dateKey !== toDateKey(startOfToday())) return null
-  const min = new Date(now.getTime() + MIN_SEND_LEAD_MS)
-  const roundedMinutes = Math.ceil(min.getMinutes() / 5) * 5
-  min.setSeconds(0, 0)
-  if (roundedMinutes >= 60) {
-    min.setHours(min.getHours() + 1)
-    min.setMinutes(0, 0, 0)
-  } else {
-    min.setMinutes(roundedMinutes, 0, 0)
-  }
-  return `${String(min.getHours()).padStart(2, '0')}:${String(min.getMinutes()).padStart(2, '0')}`
+  if (dateKey !== startOfTodayKey()) return null
+  const { hour, minute } = localTimeParts(now)
+  let totalMin = hour * 60 + minute + MIN_SEND_LEAD_MS / 60000
+  totalMin = Math.ceil(totalMin / 5) * 5
+  if (totalMin >= 24 * 60) return '23:55'
+  return minutesToTime(totalMin)
 }
 
 /** Default slot time — today uses now + 1 hour (rounded), future days use 6:00 AM. */
@@ -100,7 +104,7 @@ export function defaultSendTimeForDate(dateKey) {
 
 /** Minimum send time when editing a per-day slot row. */
 export function minSendTimeForDayKey(dayKey, pattern, resolvedDates = []) {
-  const todayKey = toDateKey(startOfToday())
+  const todayKey = startOfTodayKey()
   if (pattern === PATTERNS.CUSTOM_DATES) {
     return dayKey === todayKey ? earliestAllowedTimeForDate(todayKey) : null
   }
@@ -117,7 +121,7 @@ export function defaultSendTimeForDayKey(dayKey, pattern, resolvedDates = []) {
 
 /** Minimum send time for uniform slots that fire on every resolved date. */
 export function minSendTimeForFlatSlots(resolvedDates = []) {
-  const todayKey = toDateKey(startOfToday())
+  const todayKey = startOfTodayKey()
   return resolvedDates.some((d) => toDateKey(d) === todayKey) ? earliestAllowedTimeForDate(todayKey) : null
 }
 
@@ -137,13 +141,6 @@ export function bumpSlotTimesIfNeeded(slots, minTime) {
 /**
  * Compute the list of calendar dates (Date objects, midnight) on which a
  * schedule fires, given its config.
- *
- * @param {object} cfg
- * @param {string} cfg.pattern
- * @param {number[]} cfg.activeDays  - ISO weekdays for SPECIFIC_DAYS
- * @param {string[]} cfg.activeDates - YYYY-MM-DD for CUSTOM_DATES
- * @param {Date} cfg.startDate
- * @param {Date} cfg.endDate
  */
 export function computeActiveDates({ pattern, activeDays = [], activeDates = [], startDate, endDate }) {
   if (pattern === PATTERNS.CUSTOM_DATES) {
@@ -155,12 +152,10 @@ export function computeActiveDates({ pattern, activeDays = [], activeDates = [],
 
   if (!startDate || !endDate) return []
   const result = []
-  let cursor = new Date(startDate)
-  cursor.setHours(0, 0, 0, 0)
-  const end = new Date(endDate)
-  end.setHours(0, 0, 0, 0)
+  let cursor = fromDateKey(toDateKey(startDate))
+  const endKey = toDateKey(endDate)
   let guard = 0
-  while (cursor <= end && guard < 1000) {
+  while (toDateKey(cursor) <= endKey && guard < 1000) {
     guard += 1
     if (pattern === PATTERNS.EVERY_DAY) {
       result.push(new Date(cursor))
@@ -174,18 +169,11 @@ export function computeActiveDates({ pattern, activeDays = [], activeDates = [],
   return result
 }
 
-/**
- * The day-key a slot is bound to, for per-day schedules:
- *  - SPECIFIC_DAYS: the ISO weekday as a string ("1".."7")
- *  - CUSTOM_DATES:  the date key "YYYY-MM-DD"
- *  - uniform (every day / no per-day): null
- */
 export function dayKeyForDate(date, pattern) {
   if (pattern === PATTERNS.CUSTOM_DATES) return toDateKey(date)
   return String(isoDayOfWeek(date))
 }
 
-/** Returns the slots that apply on a given date, honoring per-day `day_key`. */
 export function slotsForDate(date, slots, pattern) {
   const hasPerDay = slots.some((s) => s.day_key != null && s.day_key !== '')
   if (!hasPerDay) return slots
@@ -193,28 +181,24 @@ export function slotsForDate(date, slots, pattern) {
   return slots.filter((s) => String(s.day_key) === key)
 }
 
-/**
- * Pre-generate transaction records (the scheduler just fires PENDING rows).
- * Returns plain objects without ids — the data layer assigns those.
- *
- * @param {Date[]} activeDateList
- * @param {Array<{id, send_time, amount, fee, label, day_key}>} slots
- * @param {string} [pattern] - needed to map per-day `day_key`s
- */
+/** Build scheduled_for ISO string for a calendar date + HH:MM in app timezone. */
+export function scheduledForIso(dateKey, sendTime) {
+  const time = String(sendTime || '06:00').slice(0, 5)
+  return `${dateKey}T${time}:00${APP_TZ_OFFSET}`
+}
+
 export function generateTransactions(activeDateList, slots, pattern) {
   const txns = []
   const activeSlots = slots.filter((s) => Number(s.amount) > 0 && s.is_active !== false)
   for (const date of activeDateList) {
     for (const slot of slotsForDate(date, activeSlots, pattern)) {
-      const [h, m] = String(slot.send_time).split(':').map(Number)
-      const scheduledFor = new Date(date)
-      scheduledFor.setHours(h || 0, m || 0, 0, 0)
+      const dateKey = toDateKey(date)
       txns.push({
         slot_id: slot.id,
         label: slot.label || '',
         amount: Number(slot.amount),
         fee: Number(slot.fee) || 0,
-        scheduled_for: scheduledFor.toISOString(),
+        scheduled_for: scheduledForIso(dateKey, slot.send_time),
         status: 'PENDING',
       })
     }

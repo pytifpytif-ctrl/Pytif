@@ -10,6 +10,7 @@ import { Icon } from '../components/icons.jsx'
 import { Gauge, WeeklyActivityBars } from '../components/charts.jsx'
 import { formatKes, formatDateTime } from '../lib/format.js'
 import { buildWeeklyActivity, sumWeeklyActivity } from '../lib/weeklyActivity.js'
+import { sortSchedulesLatest, sortUpcomingSends } from '../lib/moneyEvents.js'
 
 const VISIBLE_SCHEDULE_ROWS = 5
 
@@ -37,6 +38,16 @@ export default function Dashboard() {
   )
   const weekTotals = useMemo(() => sumWeeklyActivity(weeklyDays), [weeklyDays])
 
+  const active = useMemo(
+    () => sortSchedulesLatest((data?.schedules ?? []).filter((s) => s.status === 'ACTIVE')),
+    [data?.schedules],
+  )
+  const others = useMemo(
+    () => (data?.schedules ?? []).filter((s) => s.status !== 'ACTIVE'),
+    [data?.schedules],
+  )
+  const upcoming = useMemo(() => sortUpcomingSends(data?.upcoming ?? []), [data?.upcoming])
+
   if (loading || !data) {
     return (
       <div className="flex h-[60vh] items-center justify-center text-brand-600">
@@ -44,9 +55,6 @@ export default function Dashboard() {
       </div>
     )
   }
-
-  const active = data.schedules.filter((s) => s.status === 'ACTIVE')
-  const others = data.schedules.filter((s) => s.status !== 'ACTIVE')
 
   const defaultNames = ['Jiokoe user', 'Pytif user', 'Wastel user']
   const firstName = (user?.name && !defaultNames.includes(user.name) ? user.name.split(' ')[0] : '') || 'there'
@@ -190,7 +198,7 @@ export default function Dashboard() {
               View all
             </Link>
           </div>
-          {(data.upcoming?.length ?? 0) === 0 ? (
+          {(upcoming.length ?? 0) === 0 ? (
             <div className="card flex flex-col items-center justify-center gap-2 p-4 text-center lg:min-h-[120px] lg:flex-1">
               <span className="grid h-9 w-9 place-items-center rounded-full bg-accent-500/12 text-accent-600 dark:text-accent-300 lg:h-10 lg:w-10">
                 <Icon name="check" size={18} className="lg:hidden" />
@@ -201,7 +209,7 @@ export default function Dashboard() {
           ) : (
             <div className="card overflow-hidden px-2 py-1">
               <ul className="no-scrollbar stagger divide-y divide-line overflow-y-auto max-h-[calc(3*3.5rem)] pr-0.5">
-                {data.upcoming.map((t, i) => (
+                {upcoming.map((t, i) => (
                   <SendRow key={t.id} t={t} highlight={i === 0} compact />
                 ))}
               </ul>
@@ -320,6 +328,7 @@ function ActiveScheduleRow({ s, mask }) {
       </Link>
       <Link
         to={`/app/schedule/${s.id}/add-funds`}
+        state={{ from: 'dashboard' }}
         className="press shrink-0 rounded-lg bg-orange-500 px-2.5 py-1.5 text-[10px] font-bold text-white hover:bg-orange-600 lg:px-3 lg:py-2 lg:text-xs"
       >
         Add funds

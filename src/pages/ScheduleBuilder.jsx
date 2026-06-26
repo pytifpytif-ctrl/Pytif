@@ -7,7 +7,7 @@ import { Icon } from '../components/icons.jsx'
 import TimeWheel from '../components/TimeWheel.jsx'
 import MonthCalendar from '../components/MonthCalendar.jsx'
 import StkWaitingScreen from '../components/StkWaitingScreen.jsx'
-import AnimatedCheck from '../components/AnimatedCheck.jsx'
+import { SuccessScreen as MpesaSuccessLayout } from '../components/SuccessCallout.jsx'
 import {
   PATTERNS,
   BUILDER_PATTERNS,
@@ -31,7 +31,7 @@ import {
 const MIN_LEAD_MS = MIN_SEND_LEAD_MS
 import { depositBreakdownForDates, feeFor } from '../lib/fees.js'
 import { useHidePageScrollbar } from '../hooks/useHidePageScrollbar.js'
-import { formatKes, formatTime12, formatDateShort, formatPhone, maskPhone } from '../lib/format.js'
+import { formatKes, formatTime12, formatDateShort, formatPhone, maskPhone, formatLocalTime } from '../lib/format.js'
 
 const newSlot = (overrides = {}) => ({
   key: Math.random().toString(36).slice(2),
@@ -259,9 +259,7 @@ export default function ScheduleBuilder() {
 
   const leadError =
     earliestSend && earliestSend.getTime() < Date.now() + MIN_LEAD_MS
-      ? `Your earliest send is ${formatTime12(
-          earliestSend.toTimeString().slice(0, 5),
-        )} on ${formatDateShort(earliestSend)}, which is in the past or too soon. Sends must be at least 1 hour from now — pick a later time${
+      ? `Your earliest send is ${formatLocalTime(earliestSend)} on ${formatDateShort(earliestSend)}, which is in the past or too soon. Sends must be at least 1 hour from now — pick a later time${
           pattern === PATTERNS.EVERY_DAY ? '.' : ' or date.'
         }`
       : ''
@@ -397,7 +395,7 @@ export default function ScheduleBuilder() {
       />
     )
   }
-  if (phase === 'success') return <SuccessScreen result={result} navigate={navigate} />
+  if (phase === 'success') return <BuilderSuccessScreen result={result} navigate={navigate} />
 
   const progress = ((stepIndex + 1) / steps.length) * 100
 
@@ -1077,29 +1075,37 @@ function NeedsNumber({ navigate }) {
   )
 }
 
-function SuccessScreen({ result, navigate }) {
+function BuilderSuccessScreen({ result, navigate }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-8 text-center animate-fade-in">
-      <AnimatedCheck size={80} />
-      <h1 className="mt-6 text-2xl font-extrabold text-ink">Your schedule is live!</h1>
-      <p className="mt-2 max-w-xs text-ink-muted">
-        {formatKes(result?.total)} is now locked. First send at{' '}
-        <span className="font-bold text-ink">
-          {result?.firstSend ? formatTime12(new Date(result.firstSend).toTimeString().slice(0, 5)) : ''}
-        </span>{' '}
+    <MpesaSuccessLayout
+      title="Your schedule is live"
+      actions={
+        <>
+          <button
+            className="btn-primary h-9 w-full py-0 text-sm"
+            onClick={() => navigate(`/app/schedule/${result.scheduleId}`)}
+          >
+            View schedule
+          </button>
+          <button className="btn-ghost h-9 w-full py-0 text-sm" onClick={() => navigate('/app')}>
+            Back to home
+          </button>
+        </>
+      }
+    >
+      <>
+        <strong>{formatKes(result?.total)}</strong> is now locked. First send at{' '}
+        <strong>
+          {result?.firstSend ? formatLocalTime(result.firstSend) : ''}
+        </strong>{' '}
         on {result?.firstSend ? formatDateShort(result.firstSend) : ''}.
-      </p>
+      </>
       {result?.mpesaReference && (
-        <p className="mt-2 text-xs text-ink-muted">Deposit ref: {result.mpesaReference}</p>
+        <>
+          {' '}
+          Deposit ref: <strong>{result.mpesaReference}</strong>.
+        </>
       )}
-      <div className="mt-8 w-full max-w-xs space-y-3">
-        <button className="btn-primary w-full" onClick={() => navigate(`/app/schedule/${result.scheduleId}`)}>
-          View schedule
-        </button>
-        <button className="btn-ghost w-full" onClick={() => navigate('/app')}>
-          Back to home
-        </button>
-      </div>
-    </div>
+    </MpesaSuccessLayout>
   )
 }

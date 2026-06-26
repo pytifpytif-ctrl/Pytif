@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api.js'
 import { feeFor } from '../lib/fees.js'
 import {
@@ -7,6 +7,7 @@ import {
   earliestAllowedTimeForDate,
   fromDateKey,
   MIN_SEND_LEAD_MS,
+  scheduledForIso,
   slotsForDate,
   startOfToday,
   toDateKey,
@@ -14,8 +15,9 @@ import {
 import { Alert, ScreenHeader, Spinner } from '../components/ui.jsx'
 import { Icon } from '../components/icons.jsx'
 import StkWaitingScreen from '../components/StkWaitingScreen.jsx'
-import AnimatedCheck from '../components/AnimatedCheck.jsx'
+import { SuccessScreen } from '../components/SuccessCallout.jsx'
 import TimeWheel from '../components/TimeWheel.jsx'
+import SendSlotPicker from '../components/SendSlotPicker.jsx'
 import { formatKes, formatDateShort, maskPhone, formatTime12 } from '../lib/format.js'
 import { useHidePageScrollbar } from '../hooks/useHidePageScrollbar.js'
 
@@ -48,7 +50,7 @@ function upcomingSendOptions(schedule, slots, limit = 12) {
     const daySlots = slotsForDate(date, activeSlots, schedule.pattern)
     for (const slot of daySlots) {
       const sendTime = String(slot.send_time || '06:00').slice(0, 5)
-      const scheduled = new Date(`${toDateKey(date)}T${sendTime}:00+03:00`).getTime()
+      const scheduled = new Date(scheduledForIso(toDateKey(date), sendTime)).getTime()
       if (scheduled <= Date.now() + MIN_LEAD_MS) continue
       options.push({
         key: `${toDateKey(date)}-${sendTime}-${slot.id || slot.label}`,
@@ -67,6 +69,13 @@ function upcomingSendOptions(schedule, slots, limit = 12) {
 export default function AddFunds() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const backTo =
+    location.state?.from === 'history'
+      ? '/app/history?view=schedules'
+      : location.state?.from === 'dashboard'
+        ? '/app'
+        : `/app/schedule/${id}`
   const [schedule, setSchedule] = useState(null)
   const [slots, setSlots] = useState([])
   const [loading, setLoading] = useState(true)
@@ -80,6 +89,7 @@ export default function AddFunds() {
   const [amount, setAmount] = useState('')
   const [sendTime, setSendTime] = useState('06:00')
   const [showTime, setShowTime] = useState(false)
+  const [showSendPicker, setShowSendPicker] = useState(false)
   const [sends, setSends] = useState([])
 
   useEffect(() => {
@@ -140,7 +150,7 @@ export default function AddFunds() {
     const amt = Number(amount)
     if (!amt || amt <= 0) return setError('Enter an amount.')
     const date = selectedOption.date
-    const scheduled = new Date(`${date}T${sendTime}:00+03:00`).getTime()
+    const scheduled = new Date(scheduledForIso(date, sendTime)).getTime()
     if (scheduled <= Date.now() + MIN_LEAD_MS) {
       return setError('That send is too soon. Pick a later time.')
     }
@@ -226,185 +236,187 @@ export default function AddFunds() {
 
   if (phase === 'done') {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-8 text-center animate-fade-in">
-        <AnimatedCheck size={72} />
-        <h1 className="mt-6 text-xl font-extrabold text-ink">Funds added</h1>
-        <p className="mt-2 max-w-xs text-ink-muted">
-          {formatKes(total)} locked to {schedule.name}. New sends are on your schedule.
-        </p>
-        <div className="mt-8 flex w-full max-w-xs flex-col gap-3">
-          <button className="btn-primary w-full" onClick={() => navigate(`/app/schedule/${id}`)}>
-            View schedule
-          </button>
-          <button className="btn-ghost w-full" onClick={() => navigate('/app')}>
-            Back to home
-          </button>
-        </div>
-      </div>
+      <SuccessScreen
+        title="Funds added"
+        actions={
+          <>
+            <button className="btn-primary h-9 w-full py-0 text-sm" onClick={() => navigate(backTo)}>
+              {location.state?.from === 'history' ? 'Back to history' : 'View schedule'}
+            </button>
+            <button className="btn-ghost h-9 w-full py-0 text-sm" onClick={() => navigate('/app')}>
+              Back to home
+            </button>
+          </>
+        }
+      >
+        <>
+          <strong>{formatKes(total)}</strong> locked to {schedule.name}. New sends are on your schedule.
+        </>
+      </SuccessScreen>
     )
   }
 
   const timeChanged = selectedOption && sendTime !== selectedOption.send_time
 
   return (
-    <div className="no-scrollbar animate-fade-in mx-auto flex min-h-screen w-full max-w-lg flex-col overflow-y-auto px-5 pb-16">
-      <div className="page-top-chrome page-top-chrome-dark sticky top-0 z-30 -mx-5 shrink-0 px-5 pb-3 pt-[max(0.5rem,env(safe-area-inset-top,0px))] lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-0 lg:backdrop-blur-none">
+    <div className="animate-fade-in mx-auto flex min-h-[100dvh] w-full max-w-lg flex-col overflow-hidden">
+      <div className="page-top-chrome page-top-chrome-dark shrink-0 px-5 pb-2 pt-[max(0.5rem,env(safe-area-inset-top,0px))] lg:static lg:border-0 lg:bg-transparent lg:px-5 lg:pb-0 lg:pt-0 lg:backdrop-blur-none">
         <ScreenHeader
           embedded
           inverse
+          compact
+          dense
           title="Add funds"
           subtitle={`${schedule.name} · ${maskPhone(schedule.destination_mpesa)}`}
-          back={`/app/schedule/${id}`}
+          back={backTo}
         />
       </div>
 
-      <div className="min-h-0 flex-1 pt-4">
-        <Alert kind="info">Top-up only — pick an upcoming send, adjust amount or time, then lock funds.</Alert>
+      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-5">
+        <p className="rounded-lg border border-orange-500/25 bg-orange-500/10 px-2.5 py-1.5 text-[11px] leading-snug text-ink-muted">
+          Pick a send, set amount and time, tap <span className="font-semibold text-ink">Add send</span>, then lock funds.
+        </p>
 
         {error && (
-          <div className="mt-4">
+          <div className="mt-2">
             <Alert kind="error">{error}</Alert>
           </div>
         )}
 
         {sendOptions.length === 0 ? (
-          <section className="card mt-4 p-5 text-sm text-ink-muted">
+          <section className="card mt-2.5 p-3 text-xs text-ink-muted">
             No upcoming send slots left on this schedule. Extend the schedule or create a new one.
           </section>
         ) : (
-          <>
-            <section className="mt-4">
-              <p className="mb-2 px-1 text-xs font-bold uppercase tracking-wide text-ink-muted">Pick a send slot</p>
-              <div className="space-y-2">
-                {sendOptions.map((o) => {
-                  const selected = selectedKey === o.key
-                  return (
-                    <button
-                      key={o.key}
-                      type="button"
-                      onClick={() => selectOption(o)}
-                      className={`press flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition ${
-                        selected
-                          ? 'border-orange-500 bg-orange-500/10 shadow-sm ring-1 ring-orange-500/20'
-                          : 'border-line bg-surface'
-                      }`}
-                    >
-                      <span
-                        className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
-                          selected ? 'bg-orange-500 text-white' : 'bg-surface-soft text-orange-600 dark:text-orange-300'
-                        }`}
-                      >
-                        <Icon name="calendar" size={18} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-ink">{formatDateShort(o.date)}</p>
-                        <p className="text-xs text-ink-muted">
-                          {formatTime12(o.send_time)}
-                          {o.label ? ` · ${o.label}` : ''}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-sm font-bold text-ink">{formatKes(o.amount)}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </section>
+          selectedOption && (
+            <section className="card mt-2.5 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Add a send</p>
 
-            {selectedOption && (
-              <section className="card mt-4 p-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-ink-muted">Adjust & add</p>
-
-                <label className="mt-3 block">
-                  <span className="text-xs font-semibold text-ink-muted">Amount (KES)</span>
-                  <div className="relative mt-1">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink-muted">
-                      Ksh
+              <div className="mt-2">
+                <span className="text-[11px] font-semibold text-ink-muted">Upcoming send</span>
+                <button
+                  type="button"
+                  className="press mt-0.5 flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-surface-soft px-2.5 py-2"
+                  onClick={() => setShowSendPicker(true)}
+                >
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <Icon name="clock" size={14} className="shrink-0 text-orange-600 dark:text-orange-300" />
+                    <span className="min-w-0 truncate text-left text-xs font-semibold text-ink">
+                      {formatDateShort(selectedOption.date)} · {formatTime12(selectedOption.send_time)}
+                      {selectedOption.label ? ` · ${selectedOption.label}` : ''}
                     </span>
-                    <input
-                      className="field py-2.5 pl-12 text-lg font-bold"
-                      inputMode="numeric"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))}
-                    />
-                  </div>
-                  {Number(amount) > 0 && (
-                    <p className="mt-1.5 text-xs text-ink-muted">Fee: {formatKes(feeFor(Number(amount)))}</p>
-                  )}
-                </label>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1">
+                    <span className="text-[11px] font-bold tabular-nums text-ink-muted">{formatKes(selectedOption.amount)}</span>
+                    <Icon name="chevronDown" size={14} className="text-ink-muted" />
+                  </span>
+                </button>
+              </div>
 
-                <div className="mt-4">
-                  <span className="text-xs font-semibold text-ink-muted">Send time on {formatDateShort(selectedOption.date)}</span>
+              <label className="mt-2 block">
+                <span className="text-[11px] font-semibold text-ink-muted">Amount (KES)</span>
+                <div className="relative mt-0.5">
+                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-ink-muted">
+                    Ksh
+                  </span>
+                  <input
+                    className="field py-2 pl-10 text-sm font-bold"
+                    inputMode="numeric"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))}
+                  />
+                </div>
+                {Number(amount) > 0 && (
+                  <p className="mt-0.5 text-[10px] text-ink-muted">Fee: {formatKes(feeFor(Number(amount)))}</p>
+                )}
+              </label>
+
+              <div className="mt-2">
+                <span className="text-[11px] font-semibold text-ink-muted">
+                  Send time · {formatDateShort(selectedOption.date)}
+                </span>
+                <button
+                  type="button"
+                  className="press mt-0.5 flex w-full items-center justify-between rounded-lg border border-line bg-surface-soft px-2.5 py-2"
+                  onClick={() => setShowTime(true)}
+                >
+                  <span className="flex items-center gap-1.5 text-xs text-ink-muted">
+                    <Icon name="clock" size={14} />
+                    Time
+                  </span>
+                  <span className="text-xs font-bold text-ink">{formatTime12(sendTime)}</span>
+                </button>
+                {timeChanged && (
                   <button
                     type="button"
-                    className="press mt-1.5 flex w-full items-center justify-between rounded-xl border border-line bg-surface-soft px-4 py-3"
-                    onClick={() => setShowTime(true)}
+                    className="mt-1 text-[10px] font-semibold text-orange-600 dark:text-orange-400"
+                    onClick={() => setSendTime(selectedOption.send_time)}
                   >
-                    <span className="flex items-center gap-2 text-sm text-ink-muted">
-                      <Icon name="clock" size={16} />
-                      Time
-                    </span>
-                    <span className="text-sm font-bold text-ink">{formatTime12(sendTime)}</span>
+                    Reset to {formatTime12(selectedOption.send_time)}
                   </button>
-                  {timeChanged && (
-                    <button
-                      type="button"
-                      className="mt-2 text-xs font-semibold text-orange-600 dark:text-orange-400"
-                      onClick={() => setSendTime(selectedOption.send_time)}
-                    >
-                      Reset to {formatTime12(selectedOption.send_time)}
-                    </button>
-                  )}
-                </div>
+                )}
+              </div>
 
-                <button type="button" className="btn-ghost mt-4 w-full border-dashed" onClick={addSend}>
-                  <Icon name="plus" size={16} />
-                  Add this send
-                </button>
-              </section>
-            )}
-          </>
+              <button type="button" className="btn-primary mt-2.5 w-full py-2 text-sm" onClick={addSend}>
+                <Icon name="plus" size={14} />
+                Add send
+              </button>
+            </section>
+          )
         )}
 
         {sends.length > 0 && (
-          <section className="card mt-4 divide-y divide-line overflow-hidden">
-            <div className="px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-ink-muted">Sends to lock</p>
+          <section className="card mt-2.5 divide-y divide-line overflow-hidden">
+            <div className="px-3 py-2">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Sends to lock</p>
             </div>
             {sends.map((s) => (
-              <div key={s.key} className="flex items-center gap-3 px-4 py-3">
+              <div key={s.key} className="flex items-center gap-2 px-3 py-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-ink">{s.label}</p>
-                  <p className="text-xs text-ink-muted">
+                  <p className="truncate text-xs font-semibold text-ink">{s.label}</p>
+                  <p className="truncate text-[11px] text-ink-muted">
                     {formatDateShort(s.date)} · {formatTime12(s.send_time)}
                   </p>
                 </div>
-                <p className="text-sm font-bold text-ink">{formatKes(s.amount)}</p>
+                <p className="shrink-0 text-xs font-bold tabular-nums text-ink">{formatKes(s.amount)}</p>
                 <button
                   type="button"
-                  className="press grid h-8 w-8 place-items-center rounded-full text-ink-muted hover:bg-surface-soft"
+                  className="press grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-muted hover:bg-surface-soft"
                   aria-label="Remove send"
                   onClick={() => removeSend(s.key)}
                 >
-                  <Icon name="close" size={16} />
+                  <Icon name="close" size={14} />
                 </button>
               </div>
             ))}
-            <div className="flex items-center justify-between bg-surface-soft px-4 py-3">
-              <span className="text-sm font-semibold text-ink">Total to pay (incl. fees)</span>
-              <span className="text-lg font-extrabold text-brand-600 dark:text-brand-300">{formatKes(total)}</span>
+            <div className="flex items-center justify-between bg-surface-soft px-3 py-2">
+              <span className="text-[11px] font-semibold text-ink">Total (incl. fees)</span>
+              <span className="text-sm font-extrabold text-brand-600 dark:text-brand-300">
+                {formatKes(total)}
+              </span>
             </div>
           </section>
         )}
+      </div>
 
+      <div className="shrink-0 border-t border-line bg-surface px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2.5">
         <button
           type="button"
-          className="btn-primary mt-6 w-full"
+          className="btn-primary w-full py-2.5 text-sm"
           disabled={busy || sends.length === 0}
           onClick={submit}
         >
           {busy ? <Spinner className="h-5 w-5" /> : `Lock funds · ${formatKes(total || 0)}`}
         </button>
       </div>
+
+      <SendSlotPicker
+        open={showSendPicker}
+        options={sendOptions}
+        value={selectedKey}
+        onClose={() => setShowSendPicker(false)}
+        onSelect={selectOption}
+      />
 
       <TimeWheel
         open={showTime}

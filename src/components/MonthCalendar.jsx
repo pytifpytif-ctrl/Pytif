@@ -1,8 +1,18 @@
 import { useState } from 'react'
+import { startOfTodayKey, getLocalDayOfWeek, APP_TZ_OFFSET } from '../lib/format.js'
 import { toDateKey } from '../lib/schedule.js'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+
+function dateKey(year, monthIndex, day) {
+  return `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+function firstWeekdayMon0(year, monthIndex) {
+  const key = dateKey(year, monthIndex, 1)
+  return (getLocalDayOfWeek(`${key}T12:00:00${APP_TZ_OFFSET}`) + 6) % 7
+}
 
 /**
  * @param {string[]} selected - YYYY-MM-DD keys
@@ -11,22 +21,22 @@ const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
  * @param {Date} minDate
  */
 export default function MonthCalendar({ selected = [], onChange, multi = true, minDate }) {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const [view, setView] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1))
+  const todayKey = startOfTodayKey()
+  const [ty, tm] = todayKey.split('-').map(Number)
+  const [view, setView] = useState(() => ({ year: ty, month: tm - 1 }))
 
-  const year = view.getFullYear()
-  const month = view.getMonth()
-  const firstDow = (new Date(year, month, 1).getDay() + 6) % 7 // Mon=0
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const min = minDate ? new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate()) : today
+  const year = view.year
+  const month = view.month
+  const firstDow = firstWeekdayMon0(year, month)
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+  const minKey = minDate ? toDateKey(minDate) : todayKey
 
   const cells = []
   for (let i = 0; i < firstDow; i += 1) cells.push(null)
-  for (let d = 1; d <= daysInMonth; d += 1) cells.push(new Date(year, month, d))
+  for (let d = 1; d <= daysInMonth; d += 1) cells.push(d)
 
-  const toggle = (date) => {
-    const key = toDateKey(date)
+  const toggle = (day) => {
+    const key = dateKey(year, month, day)
     if (multi) {
       if (selected.includes(key)) onChange(selected.filter((k) => k !== key))
       else onChange([...selected, key].sort())
@@ -40,7 +50,7 @@ export default function MonthCalendar({ selected = [], onChange, multi = true, m
       <div className="mb-3 flex items-center justify-between">
         <button
           type="button"
-          onClick={() => setView(new Date(year, month - 1, 1))}
+          onClick={() => setView((v) => (v.month === 0 ? { year: v.year - 1, month: 11 } : { year: v.year, month: v.month - 1 }))}
           className="grid h-9 w-9 place-items-center rounded-full text-ink-soft transition hover:bg-surface-soft"
         >
           ‹
@@ -50,7 +60,7 @@ export default function MonthCalendar({ selected = [], onChange, multi = true, m
         </p>
         <button
           type="button"
-          onClick={() => setView(new Date(year, month + 1, 1))}
+          onClick={() => setView((v) => (v.month === 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: v.month + 1 }))}
           className="grid h-9 w-9 place-items-center rounded-full text-ink-soft transition hover:bg-surface-soft"
         >
           ›
@@ -64,17 +74,17 @@ export default function MonthCalendar({ selected = [], onChange, multi = true, m
       </div>
 
       <div className="grid grid-cols-7 gap-1">
-        {cells.map((date, i) => {
-          if (!date) return <span key={i} />
-          const key = toDateKey(date)
+        {cells.map((day, i) => {
+          if (!day) return <span key={i} />
+          const key = dateKey(year, month, day)
           const isSelected = selected.includes(key)
-          const disabled = date < min
+          const disabled = key < minKey
           return (
             <button
               key={i}
               type="button"
               disabled={disabled}
-              onClick={() => toggle(date)}
+              onClick={() => toggle(day)}
               className={`aspect-square rounded-xl text-sm font-medium transition ${
                 isSelected
                   ? 'bg-brand-600 text-white shadow-float'
@@ -83,7 +93,7 @@ export default function MonthCalendar({ selected = [], onChange, multi = true, m
                     : 'text-ink hover:bg-brand-500/10'
               }`}
             >
-              {date.getDate()}
+              {day}
             </button>
           )
         })}

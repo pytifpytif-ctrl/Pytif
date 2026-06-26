@@ -7,7 +7,8 @@
 // same flow is implemented for real in /supabase (SQL + Daraja edge functions).
 
 import { depositBreakdownForDates, feeFor } from './fees.js'
-import { computeActiveDates, generateTransactions } from './schedule.js'
+import { localDayRange, startOfTodayKey, toLocalDayKey } from './format.js'
+import { computeActiveDates, generateTransactions, scheduledForIso } from './schedule.js'
 
 const DB_KEY = 'jiokoe_db_v1'
 const SESSION_KEY = 'jiokoe_session_v1'
@@ -404,7 +405,7 @@ async function confirmDeposit(depositId) {
         fee: feeFor(amount),
         mpesa_reference: null,
         status: 'PENDING',
-        scheduled_for: new Date(`${item.date}T${item.send_time}:00+03:00`).toISOString(),
+        scheduled_for: scheduledForIso(item.date, item.send_time),
         sent_at: null,
         failure_reason: null,
       })
@@ -529,22 +530,26 @@ async function getDashboard() {
     .filter((s) => s.status === 'ACTIVE')
     .reduce((sum, s) => sum + s.locked_balance, 0)
 
-  const start = new Date()
-  start.setHours(0, 0, 0, 0)
-  const end = new Date(start)
-  end.setDate(end.getDate() + 1)
+  const { start, end } = localDayRange(startOfTodayKey())
+  const rangeStart = new Date(start).getTime()
+  const rangeEnd = new Date(end).getTime()
 
   const upcomingToday = db.transactions
     .filter((t) => {
-      const when = new Date(t.scheduled_for)
-      return t.user_id === session.userId && when >= start && when < end
+      const when = new Date(t.scheduled_for).getTime()
+      return t.user_id === session.userId && when >= rangeStart && when < rangeEnd
     })
     .map((t) => ({ ...t, schedule_name: schedules.find((s) => s.id === t.schedule_id)?.name }))
     .sort((a, b) => new Date(a.scheduled_for) - new Date(b.scheduled_for))
 
   const now = new Date()
   const upcoming = db.transactions
-    .filter((t) => t.user_id === session.userId && t.status === 'PENDING' && new Date(t.scheduled_for) >= now)
+    .filter(
+      (t) =>
+        t.user_id === session.userId &&
+        (t.status === 'PENDING' || t.status === 'PENDING_B2C_CONFIRM') &&
+        new Date(t.scheduled_for) >= now,
+    )
     .map((t) => ({ ...t, schedule_name: schedules.find((s) => s.id === t.schedule_id)?.name }))
     .sort((a, b) => new Date(a.scheduled_for) - new Date(b.scheduled_for))
     .slice(0, 30)
@@ -570,7 +575,7 @@ async function getDashboard() {
 function remainingActiveDays(schedule, db) {
   const txns = db.transactions.filter((t) => t.schedule_id === schedule.id)
   const days = new Set(
-    txns.filter((t) => t.status === 'PENDING').map((t) => t.scheduled_for.slice(0, 10)),
+    txns.filter((t) => t.status === 'PENDING').map((t) => toLocalDayKey(t.scheduled_for)),
   )
   return days.size
 }
@@ -647,7 +652,7 @@ function tick() {
     const txns = db.transactions.filter((x) => x.schedule_id === schedule.id)
     const dayMap = {}
     for (const x of txns) {
-      const day = x.scheduled_for.slice(0, 10)
+      const day = toLocalDayKey(x.scheduled_for)
       dayMap[day] = dayMap[day] || []
       dayMap[day].push(x)
     }

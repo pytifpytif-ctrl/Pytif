@@ -170,6 +170,8 @@ export function DayChart({
   formatValue = (v) => String(v),
   formatTip = null,
   fill = false,
+  verticalXLabels = false,
+  maxXLabels = null,
 }) {
   const [ready, setReady] = useState(false)
   useEffect(() => {
@@ -189,12 +191,14 @@ export function DayChart({
   const yLabels = ticks.map(formatValue)
   const maxYLabelLen = Math.max(...yLabels.map((s) => String(s).length), 1)
 
+  const xLabelIndices = pickXLabelIndices(data.length, maxXLabels)
+
   const w = 320
   const h = height
   const pad = {
     t: 12,
     r: 12,
-    b: 26,
+    b: verticalXLabels ? 48 : 26,
     l: Math.max(36, maxYLabelLen * 7 + 8),
   }
   const plotW = w - pad.l - pad.r
@@ -212,10 +216,12 @@ export function DayChart({
       : ''
 
   const axisText = {
-    fontSize: 11,
+    fontSize: verticalXLabels ? 10 : 11,
     fontWeight: 500,
     fontFamily: 'inherit',
   }
+
+  const xLabelY = h - 10
 
   return (
     <div className={fill ? 'h-full min-h-[72px] w-full' : 'w-full'} style={fill ? undefined : { height: h + 4 }}>
@@ -280,18 +286,36 @@ export function DayChart({
           </g>
         ))}
 
-        {points.map((p, i) => (
-          <text
-            key={`x-${i}`}
-            x={p.x}
-            y={h - 6}
-            textAnchor={i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'}
-            className="fill-ink-muted"
-            style={axisText}
-          >
-            {p.label}
-          </text>
-        ))}
+        {xLabelIndices.map((i) => {
+          const p = points[i]
+          if (verticalXLabels) {
+            return (
+              <text
+                key={`x-${i}`}
+                x={p.x}
+                y={xLabelY}
+                textAnchor="end"
+                transform={`rotate(-90, ${p.x}, ${xLabelY})`}
+                className="fill-ink-muted"
+                style={axisText}
+              >
+                {p.label}
+              </text>
+            )
+          }
+          return (
+            <text
+              key={`x-${i}`}
+              x={p.x}
+              y={h - 6}
+              textAnchor={i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'}
+              className="fill-ink-muted"
+              style={axisText}
+            >
+              {p.label}
+            </text>
+          )
+        })}
       </svg>
     </div>
   )
@@ -303,6 +327,18 @@ function niceCeil(n) {
   const norm = n / mag
   const nice = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10
   return nice * mag
+}
+
+/** Pick evenly spaced x-axis label indices so labels do not crowd on narrow screens. */
+function pickXLabelIndices(count, maxLabels) {
+  if (count <= 0) return []
+  if (!maxLabels || count <= maxLabels) return Array.from({ length: count }, (_, i) => i)
+
+  const step = Math.ceil(count / maxLabels)
+  const indices = []
+  for (let i = 0; i < count; i += step) indices.push(i)
+  if (indices[indices.length - 1] !== count - 1) indices.push(count - 1)
+  return indices
 }
 
 /** Segmented allocation bar. segments: [{ label, value, color }]. */

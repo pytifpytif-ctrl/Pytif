@@ -1,53 +1,46 @@
+import { toLocalDayKey, getLocalDayOfWeek } from './format.js'
+import { addDays, fromDateKey, toDateKey } from './schedule.js'
+import { CONFIRMED_DEPOSIT } from './moneyEvents.js'
+
 export const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-function toDayKey(date) {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+/** Sunday YYYY-MM-DD (Nairobi) for the week containing `now`. */
+export function getWeekStartKey(now = new Date()) {
+  const todayKey = toLocalDayKey(now)
+  const dow = getLocalDayOfWeek(now)
+  return toDateKey(addDays(fromDateKey(todayKey), -dow))
 }
 
-/** Sunday 00:00 local time for the week containing `date`. */
-export function getWeekStart(date = new Date()) {
-  const d = new Date(date)
-  d.setHours(0, 0, 0, 0)
-  d.setDate(d.getDate() - d.getDay())
-  return d
+/** Seven YYYY-MM-DD keys from Sunday through Saturday of the current Nairobi week. */
+export function getWeekDayKeys(now = new Date()) {
+  const startKey = getWeekStartKey(now)
+  const start = fromDateKey(startKey)
+  return Array.from({ length: 7 }, (_, i) => toDateKey(addDays(start, i)))
 }
 
-/** Seven YYYY-MM-DD keys from Sunday through Saturday of the current week. */
-export function getWeekDayKeys(date = new Date()) {
-  const start = getWeekStart(date)
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(start)
-    d.setDate(start.getDate() + i)
-    return toDayKey(d)
-  })
-}
-
-const SKIP_DEPOSIT = new Set(['FAILED', 'ABANDONED', 'CANCELLED'])
 const SKIP_SEND = new Set(['FAILED', 'CANCELLED'])
 
 /**
- * Aggregate money in (deposits) and money out (scheduled sends) per weekday
- * for the current calendar week (Sun–Sat, resets Sunday 00:00).
+ * Aggregate money in (confirmed deposits) and money out (scheduled sends) per weekday
+ * for the current calendar week (Sun–Sat, Nairobi time).
  */
 export function buildWeeklyActivity({ transactions = [], deposits = [], now = new Date() }) {
   const dayKeys = getWeekDayKeys(now)
-  const todayIndex = now.getDay()
+  const todayKey = toLocalDayKey(now)
+  const todayIndex = getLocalDayOfWeek(now)
 
   const inByDay = Object.fromEntries(dayKeys.map((k) => [k, 0]))
   const outByDay = Object.fromEntries(dayKeys.map((k) => [k, 0]))
 
   for (const t of transactions) {
     if (SKIP_SEND.has(t.status)) continue
-    const key = String(t.scheduled_for).slice(0, 10)
+    const key = toLocalDayKey(t.scheduled_for)
     if (key in outByDay) outByDay[key] += Number(t.amount) || 0
   }
 
   for (const d of deposits) {
-    if (SKIP_DEPOSIT.has(d.status)) continue
-    const key = String(d.created_at).slice(0, 10)
+    if (d.status !== CONFIRMED_DEPOSIT) continue
+    const key = toLocalDayKey(d.created_at)
     if (key in inByDay) inByDay[key] += Number(d.amount) || 0
   }
 
@@ -56,7 +49,7 @@ export function buildWeeklyActivity({ transactions = [], deposits = [], now = ne
     dayKey,
     moneyIn: inByDay[dayKey],
     moneyOut: outByDay[dayKey],
-    isToday: i === todayIndex,
+    isToday: dayKey === todayKey,
   }))
 }
 

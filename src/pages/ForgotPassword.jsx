@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import AuthShell from './AuthShell.jsx'
 import { Field, Alert, Spinner } from '../components/ui.jsx'
+import EmailSentNotice, { EmailSentActions } from '../components/EmailSentNotice.jsx'
 import { api } from '../lib/api.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -30,17 +31,30 @@ export default function ForgotPassword() {
   return (
     <AuthShell
       title="Reset password"
-      subtitle="We'll email you a secure reset link."
+      subtitle={sent ? 'Instructions are on the way.' : "We'll email you a secure reset link."}
       footer={
-        <Link to="/login" className="font-semibold text-brand-600">
-          ← Back to login
-        </Link>
+        !sent ? (
+          <Link to="/login" className="font-semibold text-brand-600">
+            ← Back to login
+          </Link>
+        ) : null
       }
     >
       {sent ? (
-        <Alert kind="success">
-          If an account exists for {email}, check your inbox (and spam) for the reset link.
-        </Alert>
+        <div className="space-y-4">
+          <EmailSentNotice>
+            We&apos;ve sent instructions to <strong>{email}</strong>. Click the link in that email to set a new
+            password (link expires in about an hour).
+          </EmailSentNotice>
+          <EmailSentActions
+            backTo="/login"
+            backLabel="Back to login"
+            onResend={() => {
+              setSent(false)
+              setError('')
+            }}
+          />
+        </div>
       ) : (
         <form onSubmit={submit}>
           {error && (
