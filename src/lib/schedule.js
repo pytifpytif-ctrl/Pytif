@@ -54,6 +54,86 @@ export function startOfToday() {
   return d
 }
 
+/** Sends must be at least this far in the future (matches TimeWheel 5-min steps). */
+export const MIN_SEND_LEAD_MS = 30 * 60 * 1000
+
+export function timeToMinutes(time) {
+  const [h, m] = String(time || '00:00').split(':').map(Number)
+  return (h || 0) * 60 + (m || 0)
+}
+
+export function minutesToTime(minutes) {
+  const h = Math.floor(minutes / 60) % 24
+  const m = minutes % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+export function isTimeBefore(time, minTime) {
+  if (!minTime) return false
+  return timeToMinutes(time) < timeToMinutes(minTime)
+}
+
+export function clampTimeToMin(time, minTime) {
+  if (!minTime || !isTimeBefore(time, minTime)) return time
+  return minTime
+}
+
+/** Earliest selectable HH:MM on `dateKey` when it is today; otherwise null. */
+export function earliestAllowedTimeForDate(dateKey, now = new Date()) {
+  if (dateKey !== toDateKey(startOfToday())) return null
+  const min = new Date(now.getTime() + MIN_SEND_LEAD_MS)
+  const roundedMinutes = Math.ceil(min.getMinutes() / 5) * 5
+  min.setSeconds(0, 0)
+  if (roundedMinutes >= 60) {
+    min.setHours(min.getHours() + 1)
+    min.setMinutes(0, 0, 0)
+  } else {
+    min.setMinutes(roundedMinutes, 0, 0)
+  }
+  return `${String(min.getHours()).padStart(2, '0')}:${String(min.getMinutes()).padStart(2, '0')}`
+}
+
+/** Default slot time — today uses now+30min (rounded), future days use 6:00 AM. */
+export function defaultSendTimeForDate(dateKey) {
+  return earliestAllowedTimeForDate(dateKey) || '06:00'
+}
+
+/** Minimum send time when editing a per-day slot row. */
+export function minSendTimeForDayKey(dayKey, pattern, resolvedDates = []) {
+  const todayKey = toDateKey(startOfToday())
+  if (pattern === PATTERNS.CUSTOM_DATES) {
+    return dayKey === todayKey ? earliestAllowedTimeForDate(todayKey) : null
+  }
+  if (pattern === PATTERNS.SPECIFIC_DAYS) {
+    if (String(isoDayOfWeek(startOfToday())) !== String(dayKey)) return null
+    return resolvedDates.some((d) => toDateKey(d) === todayKey) ? earliestAllowedTimeForDate(todayKey) : null
+  }
+  return null
+}
+
+export function defaultSendTimeForDayKey(dayKey, pattern, resolvedDates = []) {
+  return minSendTimeForDayKey(dayKey, pattern, resolvedDates) || '06:00'
+}
+
+/** Minimum send time for uniform slots that fire on every resolved date. */
+export function minSendTimeForFlatSlots(resolvedDates = []) {
+  const todayKey = toDateKey(startOfToday())
+  return resolvedDates.some((d) => toDateKey(d) === todayKey) ? earliestAllowedTimeForDate(todayKey) : null
+}
+
+export function bumpSlotTimesIfNeeded(slots, minTime) {
+  if (!minTime) return slots
+  let changed = false
+  const next = slots.map((s) => {
+    if (isTimeBefore(s.send_time, minTime)) {
+      changed = true
+      return { ...s, send_time: minTime }
+    }
+    return s
+  })
+  return changed ? next : slots
+}
+
 /**
  * Compute the list of calendar dates (Date objects, midnight) on which a
  * schedule fires, given its config.
@@ -142,5 +222,5 @@ export function generateTransactions(activeDateList, slots, pattern) {
   return txns.sort((a, b) => new Date(a.scheduled_for) - new Date(b.scheduled_for))
 }
 
-/** Duration presets for Step 4. */
+/** Duration presets for calendar step. */
 export const DURATION_PRESETS = [7, 14, 30]

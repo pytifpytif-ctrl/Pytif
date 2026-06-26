@@ -110,30 +110,59 @@ export function GoogleButton({ onClick, disabled, label = 'Continue with Google'
   )
 }
 
-export function ScreenHeader({ title, subtitle, back, right, embedded = false, inverse = false }) {
+export function ScreenHeader({ title, subtitle, back, hideBackOnDesktop = false, right, embedded = false, inverse = false, compact = false, dense = false }) {
   const backCls = inverse
     ? 'border-neutral-700 bg-neutral-800 text-white lg:border-line lg:bg-surface lg:text-ink'
     : 'border-line bg-surface text-ink'
 
-  const backBtn = back ? (
-    <Link
-      to={back}
-      className={`press flex h-9 w-9 shrink-0 items-center justify-center rounded-full border shadow-card ${backCls}`}
-      aria-label="Back"
-    >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-        <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </Link>
-  ) : null
+  const titleMobile = dense
+    ? `truncate text-sm font-bold leading-tight ${inverse ? 'text-white' : 'text-ink'}`
+    : compact
+      ? `truncate text-base font-bold leading-tight ${inverse ? 'text-white' : 'text-ink'}`
+      : `truncate text-lg font-bold leading-tight ${inverse ? 'text-white' : 'text-ink'}`
+  const subtitleMobile = dense
+    ? `truncate text-[11px] leading-snug ${inverse ? 'text-neutral-400' : 'text-ink-muted'}`
+    : compact
+      ? `truncate text-xs ${inverse ? 'text-neutral-400' : 'text-ink-muted'}`
+      : `truncate text-sm ${inverse ? 'text-neutral-400' : 'text-ink-muted'}`
+  const titleDesktop = dense
+    ? 'truncate text-lg font-bold leading-tight text-ink'
+    : compact
+      ? 'truncate text-xl font-bold leading-tight text-ink'
+      : 'truncate text-2xl font-bold leading-tight text-ink'
+  const subtitleDesktop = dense
+    ? 'truncate text-[11px] text-ink-muted'
+    : compact
+      ? 'truncate text-xs text-ink-muted'
+      : 'truncate text-sm text-ink-muted'
+
+  const backBtnSize = dense ? 'h-8 w-8' : 'h-9 w-9'
+  const backIconSize = dense ? 16 : 18
+
+  const renderBackButton = () => {
+    if (!back) return null
+    return (
+      <Link
+        to={back}
+        className={`press flex ${backBtnSize} shrink-0 items-center justify-center rounded-full border shadow-card ${backCls}`}
+        aria-label="Back"
+      >
+        <svg width={backIconSize} height={backIconSize} viewBox="0 0 24 24" fill="none">
+          <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </Link>
+    )
+  }
+
+  const rowGap = dense ? 'gap-2' : 'gap-2.5'
 
   const mobileGrid = (
-    <div className={`flex items-center gap-2.5 lg:hidden ${embedded ? 'pt-1' : 'pt-2.5'}`}>
-      {backBtn}
+    <div className={`flex items-center ${rowGap} lg:hidden ${embedded ? '' : 'pt-2.5'}`}>
+      {renderBackButton()}
       <div className="min-w-0 flex-1">
-        <h1 className={`truncate text-lg font-bold leading-tight ${inverse ? 'text-white' : 'text-ink'}`}>{title}</h1>
+        <h1 className={titleMobile}>{title}</h1>
         {subtitle && (
-          <p className={`truncate text-sm ${inverse ? 'text-neutral-400' : 'text-ink-muted'}`}>{subtitle}</p>
+          <p className={subtitleMobile}>{subtitle}</p>
         )}
       </div>
       {right && <div className="shrink-0">{right}</div>}
@@ -143,10 +172,10 @@ export function ScreenHeader({ title, subtitle, back, right, embedded = false, i
   const desktopRow = (
     <div className="hidden items-center justify-between gap-3 lg:flex">
       <div className="flex min-w-0 items-center gap-3">
-        {backBtn}
+        {!hideBackOnDesktop && renderBackButton()}
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-bold leading-tight text-ink">{title}</h1>
-          {subtitle && <p className="truncate text-sm text-ink-muted">{subtitle}</p>}
+          <h1 className={titleDesktop}>{title}</h1>
+          {subtitle && <p className={subtitleDesktop}>{subtitle}</p>}
         </div>
       </div>
       {right}

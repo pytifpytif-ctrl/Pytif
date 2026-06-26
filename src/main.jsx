@@ -9,11 +9,18 @@ import { BalanceProvider } from './context/BalanceContext.jsx'
 import { LiveDataProvider } from './context/LiveDataContext.jsx'
 import './index.css'
 
-if ('serviceWorker' in navigator) {
+// Dev: drop any stale service worker (old PWA dev builds logged every Supabase fetch).
+if (import.meta.env.DEV && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    for (const reg of regs) reg.unregister()
+  })
+}
+
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   registerSW({
     immediate: true,
     onOfflineReady() {
-      /* shell cached — API stays live via network-only rules */
+      /* App shell cached for offline; live data always uses the network. */
     },
   })
 }

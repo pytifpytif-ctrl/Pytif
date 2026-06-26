@@ -5,9 +5,10 @@
 import { corsHeaders, json } from '../_shared/cors.ts'
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
   return json(
     { error: 'This endpoint is disabled. Use the email password reset flow on the login page.' },
     410,
+    req,
   )
 })

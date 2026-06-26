@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api.js'
 import { useScheduler } from '../hooks/useScheduler.js'
@@ -46,6 +46,8 @@ export default function History() {
   const [range, setRange] = useState({ from: '', to: '' })
   const [showFilters, setShowFilters] = useState(false)
   const [query, setQuery] = useState('')
+  const topChromeRef = useRef(null)
+  const [topChromeHeight, setTopChromeHeight] = useState(0)
 
   const load = useCallback(async () => {
     const [t, dash] = await Promise.all([api.listTransactions(), api.getDashboard()])
@@ -59,6 +61,26 @@ export default function History() {
   }, [load])
 
   useScheduler(load)
+
+  useLayoutEffect(() => {
+    const el = topChromeRef.current
+    if (!el) return undefined
+
+    const update = () => setTopChromeHeight(el.getBoundingClientRect().height)
+    update()
+
+    const mq = window.matchMedia('(max-width: 1023px)')
+    const onMq = () => update()
+    mq.addEventListener('change', onMq)
+
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+
+    return () => {
+      mq.removeEventListener('change', onMq)
+      ro.disconnect()
+    }
+  }, [loading, view, sendStatus, scheduleFilter, showFilters, query])
 
   const tokens = useMemo(() => query.trim().toLowerCase().split(/\s+/).filter(Boolean), [query])
 
@@ -160,109 +182,133 @@ export default function History() {
   }
 
   return (
-    <div className="animate-fade-in mx-auto max-w-2xl pb-24">
-      <ScreenHeader inverse title="History" subtitle={subtitle} back="/app" />
+    <div className="mx-auto flex min-h-0 w-full min-w-0 max-w-2xl flex-1 flex-col overflow-hidden">
+      <div
+        ref={topChromeRef}
+        className="page-top-chrome page-top-chrome-dark z-40 shrink-0 max-lg:fixed max-lg:inset-x-0 max-lg:top-0 max-lg:px-5 max-lg:pb-2.5 max-lg:pt-[calc(0.75rem+env(safe-area-inset-top,0px))] lg:static lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-2 lg:backdrop-blur-none"
+      >
+        <ScreenHeader embedded inverse compact dense title="History" subtitle={subtitle} />
 
-      {/* View tabs: Sends | Schedules */}
-      <div className="mb-4 inline-flex rounded-full border border-line bg-surface-soft p-1">
-        {VIEW_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setView(tab.id)}
-            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition ${
-              view === tab.id ? 'bg-orange-500 text-white shadow-sm' : 'text-ink-muted hover:text-ink'
-            }`}
-          >
-            <Icon name={tab.icon} size={15} />
-            {tab.label}
-          </button>
-        ))}
-      </div>
+        <div className="mb-3 mt-2 inline-flex rounded-full border border-line bg-surface-soft p-1 lg:mb-4">
+          {VIEW_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setView(tab.id)}
+              className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition lg:px-4 lg:py-2 ${
+                view === tab.id ? 'bg-orange-500 text-white shadow-sm' : 'text-ink-muted hover:text-ink'
+              }`}
+            >
+              <Icon name={tab.icon} size={15} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-      {/* Search */}
-      <div className="field-wrap mb-3">
-        <span className="field-ic">
-          <Icon name="search" size={18} />
-        </span>
-        <input
-          className="field"
-          type="search"
-          placeholder={view === 'sends' ? 'Search sends…' : 'Search schedules…'}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {query && (
-          <button
-            onClick={() => setQuery('')}
-            aria-label="Clear search"
-            className="press absolute right-3 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-ink-muted transition-colors hover:text-ink"
-          >
-            <Icon name="close" size={16} />
-          </button>
+        <div className="field-wrap mb-3">
+          <span className="field-ic">
+            <Icon name="search" size={18} />
+          </span>
+          <input
+            className="field"
+            type="search"
+            placeholder={view === 'sends' ? 'Search sends…' : 'Search schedules…'}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query && (
+            <button
+              onClick={() => setQuery('')}
+              aria-label="Clear search"
+              className="press absolute right-3 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-ink-muted transition-colors hover:text-ink"
+            >
+              <Icon name="close" size={16} />
+            </button>
+          )}
+        </div>
+
+        {view === 'sends' ? (
+          <>
+            <div className="mb-0 flex items-center gap-2">
+              <div className="no-scrollbar flex flex-1 gap-2 overflow-x-auto pb-0.5">
+                {SEND_STATUS_FILTERS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setSendStatus(s)}
+                    className={`chip press whitespace-nowrap px-3 py-1.5 text-xs lg:px-3.5 lg:py-2 lg:text-sm ${
+                      sendStatus === s ? 'bg-orange-500 text-white' : 'border border-line bg-surface text-ink-soft shadow-card'
+                    }`}
+                  >
+                    {s === 'ALL' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowFilters((v) => !v)}
+                aria-label="Filters"
+                className={`press relative grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors ${
+                  showFilters || advancedCount > 0
+                    ? 'border-orange-500 bg-orange-500/10 text-orange-600 dark:text-orange-300'
+                    : 'border-line bg-surface text-ink-soft shadow-card'
+                }`}
+              >
+                <Icon name="filter" size={17} />
+                {advancedCount > 0 && (
+                  <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-orange-500 text-[10px] font-bold text-white">
+                    {advancedCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {showFilters && (
+              <div className="card mt-3 animate-scale-in space-y-3 p-4">
+                <div>
+                  <label className="label">Schedule</label>
+                  <select className="field py-2.5" value={scheduleId} onChange={(e) => setScheduleId(e.target.value)}>
+                    <option value="ALL">All schedules</option>
+                    {schedules.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="label">From</label>
+                    <input type="date" className="field py-2.5" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label">To</label>
+                    <input type="date" className="field py-2.5" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="no-scrollbar flex gap-2 overflow-x-auto pb-0.5">
+            {SCHEDULE_FILTERS.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setScheduleFilter(f.id)}
+                className={`chip press whitespace-nowrap px-3 py-1.5 text-xs lg:px-3.5 lg:py-2 lg:text-sm ${
+                  scheduleFilter === f.id ? 'bg-orange-500 text-white' : 'border border-line bg-surface text-ink-soft shadow-card'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
+      <div className="shrink-0 lg:hidden" style={{ height: topChromeHeight || undefined }} aria-hidden />
+
+      <div className="no-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pb-[calc(6rem+env(safe-area-inset-bottom,0px))] pt-3 lg:pb-0 lg:pt-4">
       {view === 'sends' ? (
         <>
-          <div className="mb-3 flex items-center gap-2">
-            <div className="scroll-area flex flex-1 gap-2 overflow-x-auto pb-1">
-              {SEND_STATUS_FILTERS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSendStatus(s)}
-                  className={`chip press whitespace-nowrap px-3.5 py-2 ${
-                    sendStatus === s ? 'bg-orange-500 text-white' : 'border border-line bg-surface text-ink-soft shadow-card'
-                  }`}
-                >
-                  {s === 'ALL' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowFilters((v) => !v)}
-              aria-label="Filters"
-              className={`press relative grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors ${
-                showFilters || advancedCount > 0
-                  ? 'border-orange-500 bg-orange-500/10 text-orange-600 dark:text-orange-300'
-                  : 'border-line bg-surface text-ink-soft shadow-card'
-              }`}
-            >
-              <Icon name="filter" size={17} />
-              {advancedCount > 0 && (
-                <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-orange-500 text-[10px] font-bold text-white">
-                  {advancedCount}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {showFilters && (
-            <div className="card mb-4 animate-scale-in space-y-3 p-4">
-              <div>
-                <label className="label">Schedule</label>
-                <select className="field py-2.5" value={scheduleId} onChange={(e) => setScheduleId(e.target.value)}>
-                  <option value="ALL">All schedules</option>
-                  {schedules.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="label">From</label>
-                  <input type="date" className="field py-2.5" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} />
-                </div>
-                <div>
-                  <label className="label">To</label>
-                  <input type="date" className="field py-2.5" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} />
-                </div>
-              </div>
-            </div>
-          )}
-
           {anySendFilter && (
             <button onClick={clearAll} className="press mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-600 dark:text-orange-400">
               <Icon name="close" size={15} />
@@ -293,20 +339,6 @@ export default function History() {
         </>
       ) : (
         <>
-          <div className="scroll-area mb-4 flex gap-2 overflow-x-auto pb-1">
-            {SCHEDULE_FILTERS.map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setScheduleFilter(f.id)}
-                className={`chip press whitespace-nowrap px-3.5 py-2 ${
-                  scheduleFilter === f.id ? 'bg-orange-500 text-white' : 'border border-line bg-surface text-ink-soft shadow-card'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
           {anyScheduleFilter && (
             <button onClick={clearAll} className="press mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-600 dark:text-orange-400">
               <Icon name="close" size={15} />
@@ -329,6 +361,7 @@ export default function History() {
           )}
         </>
       )}
+      </div>
     </div>
   )
 }

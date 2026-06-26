@@ -19,6 +19,18 @@ verify_jwt = true
 [functions.add-funds]
 verify_jwt = true
 
+[functions.abandon-schedule]
+verify_jwt = true
+
+[functions.request-passcode-reset]
+verify_jwt = false
+
+[functions.verify-passcode-reset]
+verify_jwt = false
+
+[functions.complete-passcode-reset]
+verify_jwt = false
+
 [functions.stk-callback]
 verify_jwt = false
 

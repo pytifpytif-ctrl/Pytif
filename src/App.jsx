@@ -1,11 +1,13 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import { Spinner } from './components/ui.jsx'
+import AppPasscodeGate from './components/AppPasscodeGate.jsx'
 import AppLayout from './components/AppLayout.jsx'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import ForgotPassword from './pages/ForgotPassword.jsx'
 import ResetPassword from './pages/ResetPassword.jsx'
+import ResetPasscode from './pages/ResetPasscode.jsx'
 import Landing from './pages/Landing.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import ScheduleBuilder from './pages/ScheduleBuilder.jsx'
@@ -18,7 +20,7 @@ import Analytics from './pages/Analytics.jsx'
 import Terms from './pages/Terms.jsx'
 import Privacy from './pages/Privacy.jsx'
 
-function RequireAuth({ children }) {
+function RequireAuthOnly({ children }) {
   const { user, loading } = useAuth()
   if (loading) {
     return (
@@ -29,6 +31,19 @@ function RequireAuth({ children }) {
   }
   if (!user) return <Navigate to="/login" replace />
   return children
+}
+
+function RequireAuth({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-brand-600">
+        <Spinner className="h-8 w-8" />
+      </div>
+    )
+  }
+  if (!user) return <Navigate to="/login" replace />
+  return <AppPasscodeGate userId={user.id}>{children}</AppPasscodeGate>
 }
 
 function RedirectIfAuthed({ children }) {
@@ -59,6 +74,14 @@ export default function App() {
       />
       <Route path="/forgot" element={<ForgotPassword />} />
       <Route path="/reset" element={<ResetPassword />} />
+      <Route
+        path="/reset-passcode"
+        element={
+          <RequireAuthOnly>
+            <ResetPasscode />
+          </RequireAuthOnly>
+        }
+      />
       <Route path="/terms" element={<Terms />} />
       <Route path="/terms-of-service" element={<Terms />} />
       <Route path="/privacy" element={<Privacy />} />

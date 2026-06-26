@@ -6,27 +6,36 @@ import { Spinner, Alert, StatusBadge } from '../components/ui.jsx'
 import { Icon } from '../components/icons.jsx'
 import TimeWheel from '../components/TimeWheel.jsx'
 import MonthCalendar from '../components/MonthCalendar.jsx'
+import StkWaitingScreen from '../components/StkWaitingScreen.jsx'
+import AnimatedCheck from '../components/AnimatedCheck.jsx'
 import {
   PATTERNS,
   BUILDER_PATTERNS,
   WEEKDAY_LABELS,
-  DURATION_PRESETS,
   computeActiveDates,
   generateTransactions,
   addDays,
   startOfToday,
   toDateKey,
   fromDateKey,
+  MIN_SEND_LEAD_MS,
+  minSendTimeForDayKey,
+  minSendTimeForFlatSlots,
+  defaultSendTimeForDayKey,
+  defaultSendTimeForDate,
+  bumpSlotTimesIfNeeded,
+  isTimeBefore,
 } from '../lib/schedule.js'
 
 // Sends must be at least this far in the future (no past / too-soon sends).
-const MIN_LEAD_MS = 60 * 60 * 1000
+const MIN_LEAD_MS = MIN_SEND_LEAD_MS
 import { depositBreakdownForDates, feeFor } from '../lib/fees.js'
-import { formatKes, formatTime12, formatDateShort, formatPhone } from '../lib/format.js'
+import { useHidePageScrollbar } from '../hooks/useHidePageScrollbar.js'
+import { formatKes, formatTime12, formatDateShort, formatPhone, maskPhone } from '../lib/format.js'
 
 const newSlot = (overrides = {}) => ({
   key: Math.random().toString(36).slice(2),
-  send_time: '06:00',
+  send_time: defaultSendTimeForDate(toDateKey(startOfToday())),
   amount: '',
   label: '',
   ...overrides,
@@ -48,8 +57,8 @@ const STEP_LABELS = {
   pattern: 'Pattern',
   days: 'Days',
   dates: 'Dates',
+  duration: 'Calendar',
   slots: 'Sends',
-  duration: 'Dates',
   summary: 'Review',
 }
 
@@ -67,19 +76,19 @@ export default function ScheduleBuilder() {
   const [slots, setSlots] = useState([newSlot({ label: 'Morning fare', amount: 100 })])
   const [daySlots, setDaySlots] = useState({})
   const [duration, setDuration] = useState({
-    type: 'preset',
-    days: 30,
     startDateKey: toDateKey(startOfToday()),
-    endDateKey: null,
+    endDateKey: toDateKey(addDays(startOfToday(), 29)),
   })
   const destination = user?.is_verified && user?.mpesa_number ? user.mpesa_number : ''
 
   const [stepIndex, setStepIndex] = useState(0)
-  const [timeEditor, setTimeEditor] = useState(null)
+  const [timeEditor, setTimeEditor] = useState(null) // { slotKey, dayKey? }
   const [error, setError] = useState('')
   const [phase, setPhase] = useState('build') // build | stk | success
   const [result, setResult] = useState(null)
   const [existingNames, setExistingNames] = useState([])
+
+  useHidePageScrollbar()
 
   useEffect(() => {
     if (isRecycle) return
@@ -111,13 +120,13 @@ export default function ScheduleBuilder() {
     })()
   }, [id, isRecycle])
 
-  // Dynamic step list — one screen per decision, onboarding-style.
+  // Dynamic step list — calendar/dates before send times & amounts.
   const steps = useMemo(() => {
     const head = ['name', 'pattern']
-    if (pattern === BUILDER_PATTERNS.ONCE) return [...head, 'slots', 'duration', 'summary']
+    if (pattern === BUILDER_PATTERNS.ONCE) return [...head, 'duration', 'slots', 'summary']
     if (pattern === PATTERNS.CUSTOM_DATES) return [...head, 'dates', 'slots', 'summary']
-    if (pattern === PATTERNS.SPECIFIC_DAYS) return [...head, 'days', 'slots', 'duration', 'summary']
-    return [...head, 'slots', 'duration', 'summary']
+    if (pattern === PATTERNS.SPECIFIC_DAYS) return [...head, 'days', 'duration', 'slots', 'summary']
+    return [...head, 'duration', 'slots', 'summary']
   }, [pattern])
 
   const submitPattern = pattern === BUILDER_PATTERNS.ONCE ? PATTERNS.EVERY_DAY : pattern
@@ -131,6 +140,27 @@ export default function ScheduleBuilder() {
   }, [pattern])
 
   const step = steps[Math.min(stepIndex, steps.length - 1)]
+
+  const isPerDay = pattern === PATTERNS.SPECIFIC_DAYS || pattern === PATTERNS.CUSTOM_DATES
+
+  const dayKeys = useMemo(() => {
+    if (pattern === PATTERNS.SPECIFIC_DAYS) {
+      return [...activeDays]
+        .sort((a, b) => a - b)
+        .map((iso) => ({ key: String(iso), label: WEEKDAY_LABELS.find((w) => w.iso === iso)?.long || '' }))
+    }
+    if (pattern === PATTERNS.CUSTOM_DATES) {
+      return [...activeDates].sort().map((k) => ({ key: k, label: formatDateShort(fromDateKey(k)) }))
+    }
+    return []
+  }, [pattern, activeDays, activeDates])
+
+  const flatSlots = useMemo(() => {
+    if (!isPerDay) return slots.map((s) => ({ ...s, day_key: null }))
+    const out = []
+    for (const { key } of dayKeys) for (const s of daySlots[key] || []) out.push({ ...s, day_key: key })
+    return out
+  }, [isPerDay, slots, daySlots, dayKeys])
 
   // Resolve dates + breakdown.
   const resolved = useMemo(() => {
@@ -147,35 +177,13 @@ export default function ScheduleBuilder() {
 
     const startKey = duration.startDateKey || toDateKey(startOfToday())
     const start = fromDateKey(startKey)
-    let end = start
-
-    if (duration.type === 'endDate' && duration.endDateKey) {
-      end = fromDateKey(duration.endDateKey)
-    } else {
-      const span = Math.max(1, Number(duration.days) || 1)
-      end = addDays(start, span - 1)
-    }
-
+    const endKey = duration.endDateKey || startKey
+    let end = fromDateKey(endKey)
     if (end < start) end = start
 
-    const dates = computeActiveDates({ pattern, activeDays, startDate: start, endDate: end })
+    const dates = computeActiveDates({ pattern: submitPattern, activeDays, startDate: start, endDate: end })
     return { startDate: start, endDate: end, dates }
-  }, [pattern, activeDays, activeDates, duration])
-
-  const isPerDay = pattern === PATTERNS.SPECIFIC_DAYS || pattern === PATTERNS.CUSTOM_DATES
-
-  // The ordered list of editable "days" for per-day patterns.
-  const dayKeys = useMemo(() => {
-    if (pattern === PATTERNS.SPECIFIC_DAYS) {
-      return [...activeDays]
-        .sort((a, b) => a - b)
-        .map((iso) => ({ key: String(iso), label: WEEKDAY_LABELS.find((w) => w.iso === iso)?.long || '' }))
-    }
-    if (pattern === PATTERNS.CUSTOM_DATES) {
-      return [...activeDates].sort().map((k) => ({ key: k, label: formatDateShort(fromDateKey(k)) }))
-    }
-    return []
-  }, [pattern, activeDays, activeDates])
+  }, [pattern, activeDays, activeDates, duration, submitPattern])
 
   // Keep per-day slots in sync with the selected days (add new, drop removed).
   useEffect(() => {
@@ -183,20 +191,51 @@ export default function ScheduleBuilder() {
     setDaySlots((prev) => {
       const next = {}
       for (const { key } of dayKeys) {
-        next[key] = prev[key]?.length ? prev[key] : [newSlot({ amount: 100 })]
+        next[key] = prev[key]?.length
+          ? prev[key]
+          : [newSlot({ amount: 100, send_time: defaultSendTimeForDayKey(key, pattern, resolved.dates) })]
       }
       return next
     })
-  }, [isPerDay, dayKeys])
+  }, [isPerDay, dayKeys, pattern, resolved.dates])
 
-  // Flatten to the slot list used for pricing + submission.
-  const flatSlots = useMemo(() => {
-    if (!isPerDay) return slots.map((s) => ({ ...s, day_key: null }))
-    const out = []
-    for (const { key } of dayKeys) for (const s of daySlots[key] || []) out.push({ ...s, day_key: key })
-    return out
-  }, [isPerDay, slots, daySlots, dayKeys])
+  // Bump prefilled times that fall before the 30-minute window on today's date.
+  useEffect(() => {
+    if (step !== 'slots') return
+    if (isPerDay) {
+      setDaySlots((prev) => {
+        let changed = false
+        const next = {}
+        for (const { key } of dayKeys) {
+          const minTime = minSendTimeForDayKey(key, pattern, resolved.dates)
+          const list = prev[key] || []
+          const bumped = bumpSlotTimesIfNeeded(list, minTime)
+          if (bumped !== list) changed = true
+          next[key] = bumped
+        }
+        return changed ? next : prev
+      })
+      return
+    }
+    const minTime = minSendTimeForFlatSlots(resolved.dates)
+    if (!minTime) return
+    setSlots((prev) => {
+      const bumped = bumpSlotTimesIfNeeded(prev, minTime)
+      return bumped === prev ? prev : bumped
+    })
+  }, [step, isPerDay, dayKeys, pattern, resolved.dates])
 
+  const wheelMinTime = useMemo(() => {
+    if (!timeEditor) return null
+    if (timeEditor.dayKey != null) {
+      return minSendTimeForDayKey(timeEditor.dayKey, pattern, resolved.dates)
+    }
+    return minSendTimeForFlatSlots(resolved.dates)
+  }, [timeEditor, pattern, resolved.dates])
+
+  const editingSlot = timeEditor
+    ? findSlotByKey(timeEditor.slotKey, slots, daySlots)
+    : null
   const breakdown = depositBreakdownForDates(resolved.dates, flatSlots, submitPattern)
   const dailyTotal = slots.reduce((sum, s) => sum + (Number(s.amount) || 0), 0)
 
@@ -204,13 +243,13 @@ export default function ScheduleBuilder() {
   const earliestSend = useMemo(() => {
     const txns = generateTransactions(resolved.dates, flatSlots, submitPattern)
     return txns[0] ? new Date(txns[0].scheduled_for) : null
-  }, [resolved.dates, flatSlots, pattern])
+  }, [resolved.dates, flatSlots, submitPattern])
 
   const leadError =
     earliestSend && earliestSend.getTime() < Date.now() + MIN_LEAD_MS
       ? `Your earliest send is ${formatTime12(
           earliestSend.toTimeString().slice(0, 5),
-        )} on ${formatDateShort(earliestSend)}, which is in the past or too soon. Sends must be at least 1 hour from now — pick a later time${
+        )} on ${formatDateShort(earliestSend)}, which is in the past or too soon. Sends must be at least 30 minutes from now — pick a later time${
           pattern === PATTERNS.EVERY_DAY ? '.' : ' or date.'
         }`
       : ''
@@ -239,13 +278,15 @@ export default function ScheduleBuilder() {
     if (s === 'dates' && activeDates.length === 0) return 'Select at least one date.'
     if (s === 'duration') {
       if (!duration.startDateKey) return 'Pick a start date.'
+      if (pattern === BUILDER_PATTERNS.ONCE) return ''
+      if (!duration.endDateKey) return 'Pick an end date.'
+      if (fromDateKey(duration.endDateKey) < fromDateKey(duration.startDateKey)) {
+        return 'End date must be on or after the start date.'
+      }
       if (resolved.dates.length === 0) {
         return pattern === PATTERNS.SPECIFIC_DAYS
           ? 'No sends fall on your chosen weekdays in this range. Widen the dates or change your days.'
           : 'This date range has no active days.'
-      }
-      if (duration.type === 'endDate' && duration.endDateKey && fromDateKey(duration.endDateKey) < fromDateKey(duration.startDateKey)) {
-        return 'End date must be on or after the start date.'
       }
     }
     if (s === 'slots') {
@@ -272,6 +313,7 @@ export default function ScheduleBuilder() {
       return
     }
     setPhase('stk')
+    let created = null
     try {
       const payload = {
         name: name.trim(),
@@ -292,7 +334,7 @@ export default function ScheduleBuilder() {
             is_active: true,
           })),
       }
-      const created = await api.createSchedule(payload)
+      created = await api.createSchedule(payload)
       const confirmed = await api.confirmDeposit(created.depositId)
       const firstPending = (await api.getSchedule(created.scheduleId)).transactions.find(
         (t) => t.status === 'PENDING',
@@ -305,6 +347,9 @@ export default function ScheduleBuilder() {
       })
       setPhase('success')
     } catch (err) {
+      if (created?.scheduleId) {
+        await api.abandonSchedule(created.scheduleId).catch(() => {})
+      }
       const msg = err?.message || (typeof err === 'string' ? err : 'Something went wrong. Please try again.')
       setError(msg)
       setPhase('build')
@@ -322,13 +367,27 @@ export default function ScheduleBuilder() {
 
   if (user?.needs_onboarding || !destination) return <NeedsNumber navigate={navigate} />
 
-  if (phase === 'stk') return <StkWaiting total={breakdown.total} number={destination} />
+  if (phase === 'stk') {
+    return (
+      <StkWaitingScreen
+        variant="simple"
+        total={breakdown.total}
+        phone={destination}
+        description={
+          <>
+            Approve the M-Pesa prompt for <span className="font-bold text-ink">{formatKes(breakdown.total)}</span> on{' '}
+            {maskPhone(destination)}.
+          </>
+        }
+      />
+    )
+  }
   if (phase === 'success') return <SuccessScreen result={result} navigate={navigate} />
 
   const progress = ((stepIndex + 1) / steps.length) * 100
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col lg:max-w-2xl">
+    <div className="no-scrollbar mx-auto flex min-h-screen max-w-md flex-col overflow-y-auto lg:max-w-2xl">
       {/* Top bar + progress */}
       <div className="sticky top-0 z-20 bg-app/95 px-5 pb-3 pt-5 backdrop-blur">
         <div className="flex items-center gap-3">
@@ -366,7 +425,8 @@ export default function ScheduleBuilder() {
           <StepSlots
             slots={slots}
             setSlots={setSlots}
-            openTime={(key) => setTimeEditor(key)}
+            openTime={(slotKey) => setTimeEditor({ slotKey })}
+            minTime={minSendTimeForFlatSlots(resolved.dates)}
             once={pattern === BUILDER_PATTERNS.ONCE}
           />
         )}
@@ -375,7 +435,9 @@ export default function ScheduleBuilder() {
             dayKeys={dayKeys}
             daySlots={daySlots}
             setDaySlots={setDaySlots}
-            openTime={(key) => setTimeEditor(key)}
+            pattern={pattern}
+            resolvedDates={resolved.dates}
+            openTime={(slotKey, dayKey) => setTimeEditor({ slotKey, dayKey })}
           />
         )}
         {step === 'duration' && (
@@ -383,9 +445,7 @@ export default function ScheduleBuilder() {
             duration={duration}
             setDuration={setDuration}
             resolved={resolved}
-            breakdown={breakdown}
             pattern={pattern}
-            activeWeekdays={activeDays}
           />
         )}
         {step === 'summary' && (
@@ -404,7 +464,7 @@ export default function ScheduleBuilder() {
 
       {/* Sticky footer CTA */}
       <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-line bg-surface/95 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur lg:max-w-2xl">
-        {(step === 'duration' || step === 'slots' || step === 'summary') && resolved.dates.length > 0 && (
+        {(step === 'slots' || step === 'summary') && resolved.dates.length > 0 && (
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="text-ink-muted">Est. total to lock</span>
             <span className="text-lg font-extrabold text-ink">{formatKes(breakdown.total)}</span>
@@ -427,16 +487,19 @@ export default function ScheduleBuilder() {
 
       <TimeWheel
         open={timeEditor !== null}
-        value={findSlotByKey(timeEditor, slots, daySlots)?.send_time || '06:00'}
+        value={editingSlot?.send_time || defaultSendTimeForDate(toDateKey(startOfToday()))}
+        minTime={wheelMinTime}
         onClose={() => setTimeEditor(null)}
         onConfirm={(time) => {
-          setSlots((prev) => prev.map((s) => (s.key === timeEditor ? { ...s, send_time: time } : s)))
+          const slotKey = timeEditor?.slotKey
+          if (!slotKey) return
+          setSlots((prev) => prev.map((s) => (s.key === slotKey ? { ...s, send_time: time } : s)))
           setDaySlots((prev) => {
             let changed = false
             const next = {}
             for (const k of Object.keys(prev)) {
               next[k] = prev[k].map((s) => {
-                if (s.key === timeEditor) {
+                if (s.key === slotKey) {
                   changed = true
                   return { ...s, send_time: time }
                 }
@@ -576,9 +639,9 @@ function StepDays({ activeDays, setActiveDays }) {
 function StepDates({ activeDates, setActiveDates }) {
   return (
     <div className="animate-fade-in">
-      <h1 className="text-2xl font-extrabold text-ink">Pick your dates</h1>
+      <h1 className="text-2xl font-extrabold text-ink">Choose your dates</h1>
       <p className="mb-5 mt-1 text-ink-muted">
-        Tap each date a send should fire. Great for rent on the 1st, a loan on the 15th.
+        Tap each calendar date a send should fire. You&apos;ll set times and amounts on the next step.
       </p>
       <MonthCalendar selected={activeDates} onChange={setActiveDates} multi />
       <p className="mt-3 text-center text-sm font-medium text-ink-soft">
@@ -589,11 +652,13 @@ function StepDates({ activeDates, setActiveDates }) {
 }
 
 /** Append a sensible next slot (4h after the last one) to a slot list. */
-function appendSlot(list) {
+function appendSlot(list, minTime = null) {
   const last = list[list.length - 1]
   const [h] = (last?.send_time || '06:00').split(':').map(Number)
-  const nextHour = Math.min(h + 4, 23)
-  return [...list, newSlot({ send_time: `${String(nextHour).padStart(2, '0')}:00` })]
+  let nextHour = Math.min(h + 4, 23)
+  let send_time = `${String(nextHour).padStart(2, '0')}:00`
+  if (minTime && isTimeBefore(send_time, minTime)) send_time = minTime
+  return [...list, newSlot({ send_time })]
 }
 
 /** Reusable editor for one list of sends (time + amount + label rows). */
@@ -660,10 +725,10 @@ function SlotList({ slots, update, remove, add, openTime, canRemove }) {
   )
 }
 
-function StepSlots({ slots, setSlots, openTime, once = false }) {
+function StepSlots({ slots, setSlots, openTime, minTime = null, once = false }) {
   const update = (key, patch) => setSlots((prev) => prev.map((s) => (s.key === key ? { ...s, ...patch } : s)))
   const remove = (key) => setSlots((prev) => prev.filter((s) => s.key !== key))
-  const add = () => setSlots((prev) => appendSlot(prev))
+  const add = () => setSlots((prev) => appendSlot(prev, minTime))
 
   const applyFirstToAll = () => {
     const first = slots[0]
@@ -680,8 +745,8 @@ function StepSlots({ slots, setSlots, openTime, once = false }) {
       <h1 className="text-2xl font-extrabold text-ink">{once ? 'Set your send' : 'Set times & amounts'}</h1>
       <p className="mb-5 mt-1 text-ink-muted">
         {once
-          ? 'Pick when and how much returns to you on that day.'
-          : 'Each row is one send. These repeat on every active day unless you chose specific days or dates next.'}
+          ? 'Next you’ll set the time and amount — pick which day this send happens.'
+          : 'Each row is one send per active day in the range you chose.'}
       </p>
       <SlotList slots={slots} update={update} remove={remove} add={add} openTime={openTime} canRemove={slots.length > 1} />
       {slots.length > 1 && (
@@ -694,7 +759,7 @@ function StepSlots({ slots, setSlots, openTime, once = false }) {
   )
 }
 
-function StepDaySlots({ dayKeys, daySlots, setDaySlots, openTime }) {
+function StepDaySlots({ dayKeys, daySlots, setDaySlots, openTime, pattern, resolvedDates }) {
   const [open, setOpen] = useState(dayKeys[0]?.key ?? null)
   const [copiedFrom, setCopiedFrom] = useState(null)
 
@@ -703,13 +768,22 @@ function StepDaySlots({ dayKeys, daySlots, setDaySlots, openTime }) {
   const update = (dayKey) => (key, patch) =>
     updateDay(dayKey, (list) => list.map((s) => (s.key === key ? { ...s, ...patch } : s)))
   const remove = (dayKey) => (key) => updateDay(dayKey, (list) => list.filter((s) => s.key !== key))
-  const add = (dayKey) => () => updateDay(dayKey, (list) => appendSlot(list))
+  const add = (dayKey) => () =>
+    updateDay(dayKey, (list) => appendSlot(list, minSendTimeForDayKey(dayKey, pattern, resolvedDates)))
   const copyToAll = (dayKey) => () => {
     setDaySlots((prev) => {
       const src = (prev[dayKey] || []).map((s) => ({ send_time: s.send_time, amount: s.amount, label: s.label }))
       const next = {}
       for (const { key } of dayKeys) {
-        next[key] = key === dayKey ? prev[dayKey] : src.map((s) => newSlot(s))
+        next[key] =
+          key === dayKey
+            ? prev[dayKey]
+            : src.map((s) => {
+                const slot = newSlot(s)
+                const minTime = minSendTimeForDayKey(key, pattern, resolvedDates)
+                if (minTime && isTimeBefore(slot.send_time, minTime)) slot.send_time = minTime
+                return slot
+              })
       }
       return next
     })
@@ -759,7 +833,7 @@ function StepDaySlots({ dayKeys, daySlots, setDaySlots, openTime }) {
                     update={update(key)}
                     remove={remove(key)}
                     add={add(key)}
-                    openTime={openTime}
+                    openTime={(slotKey) => openTime(slotKey, key)}
                     canRemove={list.length > 1}
                   />
                   {dayKeys.length > 1 && (
@@ -781,167 +855,74 @@ function StepDaySlots({ dayKeys, daySlots, setDaySlots, openTime }) {
   )
 }
 
-function StepDuration({ duration, setDuration, resolved, breakdown, pattern, activeWeekdays }) {
+function StepDuration({ duration, setDuration, resolved, pattern }) {
   const startKey = duration.startDateKey || toDateKey(startOfToday())
+  const endKey = duration.endDateKey || startKey
   const startDate = fromDateKey(startKey)
   const isOnce = pattern === BUILDER_PATTERNS.ONCE
 
   const setStart = (keys) => {
     const nextStart = keys[0] || startKey
     if (isOnce) {
-      setDuration({ type: 'preset', days: 1, startDateKey: nextStart, endDateKey: null })
+      setDuration({ startDateKey: nextStart, endDateKey: nextStart })
       return
     }
-    setDuration((prev) => ({ ...prev, startDateKey: nextStart }))
+    setDuration((prev) => {
+      const next = { ...prev, startDateKey: nextStart }
+      if (prev.endDateKey && fromDateKey(prev.endDateKey) < fromDateKey(nextStart)) {
+        next.endDateKey = nextStart
+      }
+      return next
+    })
   }
 
-  const pickPreset = (days) => {
-    setDuration({ type: 'preset', days, startDateKey: startKey, endDateKey: null })
+  const setEnd = (keys) => {
+    const nextEnd = keys[0] || endKey
+    setDuration((prev) => ({ ...prev, endDateKey: nextEnd }))
   }
-
-  const spanDays =
-    resolved.startDate && resolved.endDate
-      ? Math.round((resolved.endDate - resolved.startDate) / 86400000) + 1
-      : 0
-
-  const weekdayLabel =
-    pattern === PATTERNS.SPECIFIC_DAYS
-      ? WEEKDAY_LABELS.filter((d) => activeWeekdays.includes(d.iso))
-          .map((d) => d.short)
-          .join(', ')
-      : ''
 
   if (isOnce) {
     return (
       <div className="animate-fade-in">
-        <h1 className="text-2xl font-extrabold text-ink">Pick your date</h1>
-        <p className="mb-5 mt-1 text-ink-muted">When should this one-time send happen?</p>
+        <h1 className="text-2xl font-extrabold text-ink">Choose your date</h1>
+        <p className="mb-5 mt-1 text-ink-muted">
+          One day only. You&apos;ll set the time and amount on the next step.
+        </p>
         <MonthCalendar multi={false} minDate={startOfToday()} selected={[startKey]} onChange={setStart} />
-        <div className="mt-6 space-y-2 rounded-2xl bg-brand-500/10 p-4">
-          <p className="text-center text-sm text-brand-700 dark:text-brand-200">
-            <span className="font-extrabold">{formatDateShort(resolved.startDate)}</span>
-            {' · '}
-            <span className="font-extrabold">{breakdown.totalSends} send{breakdown.totalSends === 1 ? '' : 's'}</span>
-            {' · '}
-            <span className="font-extrabold">{formatKes(breakdown.total)}</span> to lock
+        {resolved.startDate && (
+          <p className="mt-4 text-center text-sm text-ink-muted">
+            Selected: <span className="font-semibold text-ink">{formatDateShort(resolved.startDate)}</span>
           </p>
-        </div>
+        )}
       </div>
     )
   }
 
   return (
     <div className="animate-fade-in">
-      <h1 className="text-2xl font-extrabold text-ink">Starting date & length</h1>
+      <h1 className="text-2xl font-extrabold text-ink">Choose your dates</h1>
       <p className="mb-5 mt-1 text-ink-muted">
-        Choose when the schedule starts and how long it runs. We&apos;ll calculate exactly how much to lock.
+        Pick a start date and end date. Times and amounts come on the next step.
       </p>
 
       <p className="mb-2 text-sm font-semibold text-ink">Start date</p>
-      <MonthCalendar
-        multi={false}
-        minDate={startOfToday()}
-        selected={[startKey]}
-        onChange={setStart}
-      />
+      <MonthCalendar multi={false} minDate={startOfToday()} selected={[startKey]} onChange={setStart} />
 
       <p className="mb-2 mt-5 text-sm font-semibold text-ink">End date</p>
-      <p className="mb-3 text-xs text-ink-muted">Pick a preset length from your start date, enter custom days, or choose an end date.</p>
+      <MonthCalendar
+        multi={false}
+        minDate={startDate}
+        selected={[endKey]}
+        onChange={setEnd}
+      />
 
-      <div className="grid grid-cols-3 gap-3">
-        {DURATION_PRESETS.map((d) => {
-          const active = duration.type === 'preset' && duration.days === d
-          return (
-            <button
-              key={d}
-              type="button"
-              onClick={() => pickPreset(d)}
-              className={`press rounded-3xl border-2 py-5 text-center font-bold transition ${
-                active ? 'border-brand-600 bg-brand-500/10 text-brand-600 dark:text-brand-300' : 'border-transparent bg-surface text-ink shadow-card'
-              }`}
-            >
-              <span className="block text-2xl">{d}</span>
-              <span className="text-xs font-medium text-ink-muted">days</span>
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="mt-4 space-y-3">
-        <button
-          type="button"
-          onClick={() => setDuration({ type: 'customDays', days: duration.days || 21, startDateKey: startKey, endDateKey: null })}
-          className={`w-full rounded-2xl border-2 p-4 text-left transition ${
-            duration.type === 'customDays' ? 'border-brand-600 bg-brand-500/10' : 'border-transparent bg-surface shadow-card'
-          }`}
-        >
-          <span className="font-semibold text-ink">Custom number of days</span>
-          {duration.type === 'customDays' && (
-            <div className="mt-3 flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-              <input
-                className="field w-28 text-center font-bold"
-                inputMode="numeric"
-                value={duration.days}
-                onChange={(e) =>
-                  setDuration({
-                    type: 'customDays',
-                    days: Math.max(1, Number(e.target.value.replace(/\D/g, '')) || 1),
-                    startDateKey: startKey,
-                    endDateKey: null,
-                  })
-                }
-              />
-              <span className="text-ink-muted">days from start</span>
-            </div>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() =>
-            setDuration({
-              type: 'endDate',
-              days: duration.days,
-              startDateKey: startKey,
-              endDateKey: duration.endDateKey || toDateKey(addDays(startDate, 29)),
-            })
-          }
-          className={`w-full rounded-2xl border-2 p-4 text-left transition ${
-            duration.type === 'endDate' ? 'border-brand-600 bg-brand-500/10' : 'border-transparent bg-surface shadow-card'
-          }`}
-        >
-          <span className="font-semibold text-ink">Pick an end date</span>
-        </button>
-        {duration.type === 'endDate' && (
-          <MonthCalendar
-            multi={false}
-            minDate={startDate}
-            selected={duration.endDateKey ? [duration.endDateKey] : []}
-            onChange={(keys) =>
-              setDuration({ ...duration, type: 'endDate', startDateKey: startKey, endDateKey: keys[0] })
-            }
-          />
-        )}
-      </div>
-
-      <div className="mt-6 space-y-2 rounded-2xl bg-brand-500/10 p-4">
-        <p className="text-center text-sm text-brand-700 dark:text-brand-200">
-          <span className="font-extrabold">{formatDateShort(resolved.startDate)}</span>
+      {resolved.startDate && resolved.endDate && (
+        <p className="mt-4 text-center text-sm text-ink-muted">
+          <span className="font-semibold text-ink">{formatDateShort(resolved.startDate)}</span>
           {' → '}
-          <span className="font-extrabold">{formatDateShort(resolved.endDate)}</span>
+          <span className="font-semibold text-ink">{formatDateShort(resolved.endDate)}</span>
         </p>
-        <p className="text-center text-sm text-brand-700 dark:text-brand-200">
-          {spanDays} day span ·{' '}
-          <span className="font-extrabold">
-            {breakdown.activeDays} active day{breakdown.activeDays === 1 ? '' : 's'}
-          </span>
-          {pattern === PATTERNS.SPECIFIC_DAYS && weekdayLabel ? ` (${weekdayLabel})` : ''}
-        </p>
-        <p className="text-center text-sm text-brand-700 dark:text-brand-200">
-          {breakdown.totalSends} send{breakdown.totalSends === 1 ? '' : 's'} ·{' '}
-          <span className="font-extrabold">{formatKes(breakdown.total)}</span> to lock
-        </p>
-      </div>
+      )}
     </div>
   )
 }
@@ -1074,39 +1055,11 @@ function NeedsNumber({ navigate }) {
   )
 }
 
-function StkWaiting({ total, number }) {
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-8 text-center">
-      <div className="relative mb-8">
-        <span className="absolute inset-0 animate-pulse-ring rounded-full bg-brand-400" />
-        <span className="relative grid h-20 w-20 place-items-center rounded-full bg-brand-600 text-white shadow-float">
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
-            <rect x="6" y="3" width="12" height="18" rx="3" stroke="currentColor" strokeWidth="2" />
-            <path d="M11 18h2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </span>
-      </div>
-      <h1 className="text-xl font-extrabold text-ink">Check your phone</h1>
-      <p className="mt-2 max-w-xs text-ink-muted">
-        We sent an Mpesa STK push for <span className="font-bold text-ink">{formatKes(total)}</span> to{' '}
-        {formatPhone(number)}. Enter your PIN to lock it in.
-      </p>
-      <div className="mt-6 flex items-center gap-2 text-sm text-brand-600">
-        <Spinner /> Waiting for confirmation…
-      </div>
-    </div>
-  )
-}
-
 function SuccessScreen({ result, navigate }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-8 text-center">
-      <div className="mb-6 grid h-20 w-20 place-items-center rounded-full bg-accent-500 text-white shadow-float">
-        <svg width="38" height="38" viewBox="0 0 24 24" fill="none">
-          <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </div>
-      <h1 className="text-2xl font-extrabold text-ink">Your schedule is live!</h1>
+    <div className="flex min-h-screen flex-col items-center justify-center px-8 text-center animate-fade-in">
+      <AnimatedCheck size={80} />
+      <h1 className="mt-6 text-2xl font-extrabold text-ink">Your schedule is live!</h1>
       <p className="mt-2 max-w-xs text-ink-muted">
         {formatKes(result?.total)} is now locked. First send at{' '}
         <span className="font-bold text-ink">

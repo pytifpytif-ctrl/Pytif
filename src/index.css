@@ -142,6 +142,71 @@ input[type='number'] {
       linear-gradient(135deg, #fb923c 0%, #f97316 48%, #ea580c 100%);
   }
 
+  /* Homepage / detail locked-balance hero — low-poly orange facets (card-style depth) */
+  .money-card {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    border-radius: 1.25rem;
+    color: #fff;
+    background-color: #9a3412;
+    background-image: linear-gradient(128deg, #c2410c 0%, #ea580c 42%, #f97316 100%);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+      0 1px 0 rgba(255, 255, 255, 0.16) inset,
+      0 24px 52px -18px rgba(124, 45, 18, 0.55),
+      0 10px 24px -10px rgba(234, 88, 12, 0.45);
+  }
+
+  /* Geometric facet layer — orange tones at different angles */
+  .money-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 480' preserveAspectRatio='none'%3E%3Crect width='800' height='480' fill='%23c2410c'/%3E%3Cpolygon fill='%23ea580c' points='0,0 800,0 540,480 0,480'/%3E%3Cpolygon fill='%23f97316' fill-opacity='0.88' points='800,0 800,480 300,480 560,0'/%3E%3Cpolygon fill='%23fb923c' fill-opacity='0.45' points='0,0 400,0 160,260 0,360'/%3E%3Cpolygon fill='%239a3412' fill-opacity='0.72' points='160,260 800,480 0,480'/%3E%3Cpolygon fill='%23fdba74' fill-opacity='0.28' points='400,0 800,200 560,0'/%3E%3Cpolygon fill='%237c2d12' fill-opacity='0.55' points='300,480 800,480 800,260 500,480'/%3E%3Cpolygon fill='%23fb923c' fill-opacity='0.38' points='560,0 800,0 800,140 680,0'/%3E%3Cpolygon fill='%23ea580c' fill-opacity='0.6' points='680,0 800,140 800,260 500,480 300,480 560,0'/%3E%3C/svg%3E");
+    background-size: cover;
+    background-position: center;
+    pointer-events: none;
+  }
+
+  /* Soft top-left gleam + matte grain */
+  .money-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(ellipse 85% 65% at 0% 0%, rgba(255, 255, 255, 0.22), transparent 52%),
+      radial-gradient(ellipse 50% 40% at 100% 100%, rgba(124, 45, 18, 0.35), transparent 55%),
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E");
+    background-size: 100% 100%, 100% 100%, 180px 180px;
+    mix-blend-mode: soft-light;
+    pointer-events: none;
+  }
+
+  .money-card > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .money-card-glass {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .money-card-chip {
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  }
+
+  .money-card-amount {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+    text-shadow: 0 2px 20px rgba(67, 20, 7, 0.45);
+  }
+
   .app-bg-decor {
     background-color: rgb(var(--app));
     background-image:
@@ -206,6 +271,29 @@ input[type='number'] {
   }
   .press {
     @apply transition-transform active:scale-[0.98];
+  }
+
+  /* Hide scrollbar while keeping scroll (homepage, etc.). */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  html.hide-page-scrollbar,
+  html.hide-page-scrollbar body {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  html.hide-page-scrollbar::-webkit-scrollbar,
+  html.hide-page-scrollbar body::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
   }
 
   /* Branded slim scrollbar for internal scroll areas. */

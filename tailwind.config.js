@@ -75,6 +75,27 @@ export default {
           '0%': { transform: 'scale(0.9)', opacity: '0.7' },
           '100%': { transform: 'scale(1.6)', opacity: '0' },
         },
+        'stk-float': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-6px)' },
+        },
+        'stk-orbit': {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' },
+        },
+        'stk-pin': {
+          '0%, 100%': { opacity: '0.35', transform: 'scale(0.85)' },
+          '50%': { opacity: '1', transform: 'scale(1)' },
+        },
+        'stk-dot': {
+          '0%, 80%, 100%': { opacity: '0.25', transform: 'scale(0.8)' },
+          '40%': { opacity: '1', transform: 'scale(1)' },
+        },
+        shake: {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '20%, 60%': { transform: 'translateX(-6px)' },
+          '40%, 80%': { transform: 'translateX(6px)' },
+        },
         'draw-in': {
           '0%': { strokeDashoffset: 'var(--dash, 1000)' },
           '100%': { strokeDashoffset: '0' },
@@ -85,6 +106,11 @@ export default {
         'slide-up': 'slide-up 0.45s cubic-bezier(0.22,1,0.36,1) both',
         'scale-in': 'scale-in 0.3s cubic-bezier(0.22,1,0.36,1) both',
         'pulse-ring': 'pulse-ring 1.6s ease-out infinite',
+        'stk-float': 'stk-float 3s ease-in-out infinite',
+        'stk-orbit': 'stk-orbit 4s linear infinite',
+        'stk-pin': 'stk-pin 1.4s ease-in-out infinite',
+        'stk-dot': 'stk-dot 1.2s ease-in-out infinite',
+        shake: 'shake 0.45s ease-in-out',
         'draw-in': 'draw-in 1s ease-out forwards',
       },
     },

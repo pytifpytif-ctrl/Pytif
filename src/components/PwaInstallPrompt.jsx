@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Icon } from './icons.jsx'
+import { LogoMark } from './Logo.jsx'
 import { dismissPwaPrompt, isIos, isPwaDismissed, isStandalonePwa } from '../lib/pwa.js'
 
 export default function PwaInstallPrompt() {
@@ -52,9 +53,7 @@ export default function PwaInstallPrompt() {
     <div className="fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] z-40 px-4 lg:bottom-6 lg:left-auto lg:right-6 lg:max-w-sm lg:px-0">
       <div className="animate-slide-up overflow-hidden rounded-2xl border border-line bg-surface shadow-float ring-1 ring-black/5 dark:ring-white/10">
         <div className="flex items-start gap-3 p-4">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-rich text-white shadow-glow">
-            <Icon name="download" size={20} />
-          </span>
+          <LogoMark size={44} className="shrink-0 shadow-glow" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-ink">Install Jiokoe</p>
             <p className="mt-0.5 text-xs leading-snug text-ink-muted">

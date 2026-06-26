@@ -8,7 +8,8 @@ import { Avatar, Spinner } from '../components/ui.jsx'
 import { Icon } from '../components/icons.jsx'
 import { Gauge, MiniBars } from '../components/charts.jsx'
 import { formatKes, formatDateTime } from '../lib/format.js'
-import { StatusBadge } from '../components/ui.jsx'
+
+const VISIBLE_SCHEDULE_ROWS = 5
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -95,23 +96,16 @@ export default function Dashboard() {
         </Link>
       )}
 
-      <div className="scroll-area max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto max-lg:pb-1">
+      <div className="no-scrollbar max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto max-lg:pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
         <div className="grid gap-3 max-lg:flex max-lg:flex-col lg:grid-cols-3 lg:gap-5">
         {/* Locked balance hero */}
-        <section className="bg-brand-rich relative shrink-0 overflow-hidden rounded-3xl p-3.5 text-white shadow-glow lg:col-span-2 lg:p-5">
-          {/* Decorative depth */}
-          <div aria-hidden className="pointer-events-none absolute inset-0">
-            <div className="absolute -right-12 -top-20 h-56 w-56 rounded-full bg-white/20 blur-2xl" />
-            <div className="absolute -bottom-24 right-1/4 h-48 w-48 rounded-full bg-amber-300/30 blur-3xl" />
-            <div className="absolute -left-16 top-1/3 h-40 w-40 rounded-full bg-orange-300/20 blur-2xl" />
-            <div className="absolute -right-8 bottom-4 h-32 w-32 rounded-full border border-white/15" />
-            <div className="absolute -right-2 bottom-10 h-20 w-20 rounded-full border border-white/10" />
-          </div>
-          <div className="relative">
-            {/* Top row: label + active count */}
+        <section className="money-card shrink-0 lg:col-span-2">
+          <div className="p-3.5 lg:p-5">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-orange-100 lg:text-xs">Total locked balance</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-orange-100 lg:text-xs">
+                  Total locked balance
+                </p>
                 <button
                   onClick={toggle}
                   className="press grid h-5 w-5 place-items-center rounded-full bg-white/15 text-orange-50 transition hover:bg-white/25 lg:h-6 lg:w-6"
@@ -122,43 +116,50 @@ export default function Dashboard() {
                   <Icon name={hidden ? 'eyeOff' : 'eye'} size={13} className="hidden lg:block" />
                 </button>
               </div>
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold lg:px-3 lg:py-1 lg:text-xs">
+              <span className="money-card-glass inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold lg:px-3 lg:py-1 lg:text-xs">
                 <Icon name="lockClosed" size={12} className="lg:hidden" />
                 <Icon name="lockClosed" size={13} className="hidden lg:block" />
                 {active.length} active
               </span>
             </div>
 
-            {/* Balance + gauge */}
             <div className="mt-1 flex items-center justify-between gap-2 lg:gap-3">
-              <p className="text-xl font-bold leading-none tracking-tight sm:text-2xl lg:text-3xl">{mask(formatKes(data.totalLocked))}</p>
-              <Gauge
-                value={todayDone}
-                max={todayTotal || 1}
-                size={64}
-                stroke={7}
-                center={
-                  todayTotal > 0 ? (
-                    <div className="text-white">
-                      <p className="text-lg font-bold leading-none lg:text-xl">
-                        {todayDone}
-                        <span className="text-xs font-semibold text-orange-100 lg:text-sm">/{todayTotal}</span>
-                      </p>
-                      <p className="mt-0.5 text-[8px] font-medium uppercase tracking-wide text-orange-100 lg:text-[9px]">today</p>
-                    </div>
-                  ) : (
-                    <div className="text-white">
-                      <Icon name="check" size={18} className="mx-auto lg:hidden" />
-                      <Icon name="check" size={20} className="mx-auto hidden lg:block" />
-                      <p className="mt-0.5 text-[8px] font-medium uppercase tracking-wide text-orange-100 lg:text-[9px]">clear</p>
-                    </div>
-                  )
-                }
-              />
+              <p className="money-card-amount text-xl font-bold leading-none sm:text-2xl lg:text-3xl">
+                {mask(formatKes(data.totalLocked))}
+              </p>
+              <div className="shrink-0">
+                <Gauge
+                  value={todayDone}
+                  max={todayTotal || 1}
+                  size={64}
+                  stroke={7}
+                  center={
+                    todayTotal > 0 ? (
+                      <div className="text-white">
+                        <p className="text-lg font-bold leading-none lg:text-xl">
+                          {todayDone}
+                          <span className="text-xs font-semibold text-orange-100 lg:text-sm">/{todayTotal}</span>
+                        </p>
+                        <p className="mt-0.5 text-[8px] font-medium uppercase tracking-wide text-orange-100 lg:text-[9px]">
+                          today
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-white">
+                        <Icon name="check" size={18} className="mx-auto lg:hidden" />
+                        <Icon name="check" size={20} className="mx-auto hidden lg:block" />
+                        <p className="mt-0.5 text-[8px] font-medium uppercase tracking-wide text-orange-100 lg:text-[9px]">
+                          clear
+                        </p>
+                      </div>
+                    )
+                  }
+                />
+              </div>
             </div>
 
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5 lg:mt-2 lg:gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-black/20 px-2 py-0.5 text-[10px] font-semibold text-white lg:px-2.5 lg:py-1 lg:text-[11px]">
+              <span className="money-card-chip inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold lg:px-2.5 lg:py-1 lg:text-[11px]">
                 No withdrawals
               </span>
               <Link
@@ -191,7 +192,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="card overflow-hidden px-2 py-1">
-              <ul className="scroll-area stagger divide-y divide-line overflow-y-auto max-h-[calc(3*3.5rem)] pr-0.5">
+              <ul className="no-scrollbar stagger divide-y divide-line overflow-y-auto max-h-[calc(3*3.5rem)] pr-0.5">
                 {data.upcoming.map((t, i) => (
                   <SendRow key={t.id} t={t} highlight={i === 0} compact />
                 ))}
@@ -226,12 +227,24 @@ export default function Dashboard() {
                 View all
               </Link>
             </div>
-            <div className="card overflow-hidden px-2 py-1">
-              <ul className="divide-y divide-line">
+            <div className="card relative overflow-hidden px-2 py-1">
+              <ul
+                className={`divide-y divide-line ${
+                  active.length > VISIBLE_SCHEDULE_ROWS
+                    ? 'no-scrollbar max-h-[calc(5*3.625rem)] overflow-y-auto lg:max-h-[calc(5*4rem)]'
+                    : ''
+                }`}
+              >
                 {active.map((s) => (
                   <ActiveScheduleRow key={s.id} s={s} mask={mask} />
                 ))}
               </ul>
+              {active.length > VISIBLE_SCHEDULE_ROWS && (
+                <div
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-7 bg-gradient-to-t from-surface via-surface/80 to-transparent"
+                  aria-hidden
+                />
+              )}
             </div>
           </section>
         )}
@@ -284,10 +297,7 @@ function ActiveScheduleRow({ s, mask }) {
             {s.nextSend ? `Next · ${formatDateTime(s.nextSend)}` : 'No upcoming sends'}
           </p>
         </div>
-        <div className="shrink-0 text-right">
-          <p className="text-sm font-bold text-ink">{mask(formatKes(s.locked_balance))}</p>
-          <StatusBadge status={s.status} />
-        </div>
+        <p className="shrink-0 text-sm font-bold text-ink">{mask(formatKes(s.locked_balance))}</p>
       </Link>
       <Link
         to={`/app/schedule/${s.id}/add-funds`}

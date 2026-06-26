@@ -5,7 +5,7 @@
 // IMPORTANT: Verify current Mpesa B2C rates on developer.safaricom.co.ke
 // before launch. These mirror the published rate bands as of the build brief.
 
-import { slotsForDate } from './schedule.js'
+import { slotsForDate, computeActiveDates, addDays } from './schedule.js'
 
 export const JIOKOE_FEE_PER_SEND = 5
 /** @deprecated Use JIOKOE_FEE_PER_SEND */
@@ -126,4 +126,39 @@ export function depositBreakdownForDates(activeDateList, slots, pattern) {
     totalFees,
     total: baseAmount + totalFees,
   }
+}
+
+/**
+ * Expand from startDate until lock total (incl. fees) reaches targetTotal.
+ * For every-day / weekday schedules when the user ends by budget, not end date.
+ */
+export function datesUntilLockTarget({
+  startDate,
+  pattern,
+  activeDays = [],
+  slots = [],
+  targetTotal,
+  maxSpanDays = 365,
+}) {
+  const target = Math.round(Number(targetTotal) || 0)
+  const start = new Date(startDate)
+  start.setHours(0, 0, 0, 0)
+  if (target <= 0) {
+    return { endDate: start, dates: computeActiveDates({ pattern, activeDays, startDate: start, endDate: start }) }
+  }
+
+  const valid = slots.filter((s) => Number(s.amount) > 0)
+  if (valid.length === 0) {
+    return { endDate: start, dates: computeActiveDates({ pattern, activeDays, startDate: start, endDate: start }) }
+  }
+
+  let end = start
+  let dates = []
+  for (let span = 1; span <= maxSpanDays; span++) {
+    end = addDays(start, span - 1)
+    dates = computeActiveDates({ pattern, activeDays, startDate: start, endDate: end })
+    const { total } = depositBreakdownForDates(dates, slots, pattern)
+    if (total >= target) return { endDate: end, dates }
+  }
+  return { endDate: end, dates }
 }

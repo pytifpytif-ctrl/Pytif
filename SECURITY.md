@@ -1,12 +1,14 @@
-# Jiokoe Security
+# Jiokoe / Pytif Security
 
-Jiokoe handles real money. No system is 100% unpenetrable, but this document describes what is implemented in code and what you must configure in production.
+**Version 1.0 | June 2026 | CONFIDENTIAL**
+
+Jiokoe handles real customer money. This document maps the [Pytif Security Implementation Checklist v1.0] to what is implemented in this repository and what must be configured in production.
 
 ## Architecture
 
 | Layer | Technology | Trust boundary |
 |-------|------------|----------------|
-| Frontend | React SPA (Vercel) | Public; only anon key + user JWT |
+| Frontend | React SPA (Vercel / Render) | Public; anon key + user JWT only |
 | Auth | Supabase Auth | Email/OAuth sessions |
 | Data | Postgres + RLS | Row-level isolation per user |
 | Payments | Edge Functions + Daraja | Service role only for money movement |
@@ -16,96 +18,196 @@ Jiokoe handles real money. No system is 100% unpenetrable, but this document des
 
 ---
 
-## Implemented controls (code)
+## Checklist mapping
 
-### Database (`0006_security_hardening.sql`)
+Legend: **DONE** = implemented in code | **CONFIG** = requires dashboard/env setup | **N/A** = not applicable to this stack | **GAP** = documented limitation
 
-- **RLS**: Users read/update own profile; schedules read-only for financial fields; send slots read-only; transactions/deposits read-only.
-- **Triggers**: Block client changes to `is_verified`, verified `mpesa_number`, `locked_balance`, schedule `status`, slot amounts, etc.
-- **RPC lockdown**: `activate_schedule`, `mark_send_*`, `process_due_sends` executable only by `service_role`.
-- **Audit log**: `security_audit_log` table (service role only).
-- **Rate limits**: `check_rate_limit()` for abuse prevention (legacy OTP tables may remain).
+### 1. Authentication & session
 
-### Edge functions
+| Requirement | Status | Implementation |
+|-------------|--------|----------------|
+| OTP expiry 5 min | **DONE** | `send-otp` — 5-minute `expires_at` |
+| OTP 6 digits | **DONE** | `otp.ts` `generateCode()` |
+| OTP brute force lock 30 min / 5 fails | **DONE** | `verify-otp` + `users.otp_locked_until` (0012) |
+| OTP rate limit 3/phone/10 min | **DONE** | `send-otp` `enforceRateLimit` |
+| OTP SMS only | **DONE** | Africa's Talking via `_shared/sms.ts` |
+| OTP single use | **DONE** | Consumed on first verify attempt |
+| OTP not in URL | **DONE** | POST body only |
+| httpOnly cookies for JWT | **GAP** | Supabase JS client uses secure browser storage; enable Supabase Auth hardening + short JWT expiry in dashboard |
+| JWT 15 min / refresh 7 days | **CONFIG** | Supabase Dashboard → Auth → JWT expiry |
+| RS256 signing | **CONFIG** | Managed by Supabase Auth |
+| Logout invalidates refresh server-side | **CONFIG** | Supabase `signOut()` revokes refresh token |
+| bcrypt cost 12 | **CONFIG** | Supabase Auth password hashing |
+| Login rate limit 5/min/IP | **CONFIG** | Enable Supabase Auth rate limits + WAF |
+| HaveIBeenPwned | **CONFIG** | Enable leaked password protection in Supabase Dashboard |
+| Account enumeration prevention | **CONFIG** | Supabase Auth generic errors |
 
-| Function | Protection |
-|----------|------------|
-| `create-schedule` | JWT required; verified M-Pesa only; payout = verified number |
-| `confirm-mpesa` | JWT; double-entry match; sets verified via service role |
-| `b2c-send` | **Service role bearer required** |
-| `stk-callback` | Amount must match deposit; idempotent confirm; audit log |
-| `b2c-result` / `b2c-timeout` | State checks; amount verification; audit log |
-| `reset-password` | **Disabled** — use email reset only |
+Primary M-Pesa verification uses **double-entry confirmation** (`confirm-mpesa`) rather than SMS OTP for onboarding; SMS OTP remains available via `send-otp` / `verify-otp`.
 
-### Frontend
+### 2. Daraja / M-Pesa
 
-- Security headers via `vercel.json` (CSP, HSTS, frame deny, nosniff).
-- Profile onboarding saves M-Pesa only via `confirm-mpesa` (server-side double-entry check).
-- Demo mock backend must not be used in production (`VITE_SUPABASE_*` must be set).
+| Requirement | Status | Implementation |
+|-------------|--------|----------------|
+| Callback IP whitelist | **DONE** | `MPESA_CALLBACK_IP_ALLOWLIST` in `_shared/security.ts` |
+| Callback shared secret | **DONE** | `INTERNAL_WEBHOOK_SECRET` header check |
+| Idempotent receipts | **DONE** | Unique indexes + duplicate checks in `stk-callback`, `mark_send_success` (0012) |
+| Replay prevention (5 min) | **DONE** | `isCallbackTooOld()` on STK/B2C callbacks |
+| Callback logging 90 days | **DONE** | `mpesa_callback_log` + `purge_old_callback_logs()` |
+| Amount validation | **DONE** | STK amount match; B2C amount match |
+| Phone validation (PartyA) | **DONE** | STK callback compares payer to user profile |
+| Credentials in env only | **DONE** | `.env.example`; never committed |
+| OAuth token in memory | **DONE** | `_shared/daraja.ts` in-memory cache |
+| Separate sandbox/production | **DONE** | `MPESA_ENV` |
+
+Safaricom does not provide a standard HMAC on STK/B2C JSON callbacks; defense relies on **IP allowlist + webhook secret + idempotency + amount/phone validation**.
+
+### 3. Database & Supabase
+
+| Requirement | Status | Implementation |
+|-------------|--------|----------------|
+| RLS on all tables | **DONE** | `0001_init.sql`, `0006_security_hardening.sql` |
+| User isolation | **DONE** | `auth.uid() = user_id` policies |
+| Service role isolation | **DONE** | Edge functions + scheduler only |
+| No client financial writes | **DONE** | Triggers on schedules, deposits, transactions |
+| Atomic balance ops | **DONE** | `mark_send_success` with `FOR UPDATE` (0012) |
+| Double-spend prevention | **DONE** | Balance check inside transaction |
+| Balance floor >= 0 | **DONE** | `chk_schedules_locked_balance_nonneg` (0012) |
+| Immutable transaction log | **DONE** | `guard_transactions_mutation` (0012) |
+| Amount cap Ksh 70,000 | **DONE** | DB constraints + `validateSendAmount` |
+| Daily reconciliation | **DONE** | `reconcile_locked_balances()` — schedule via pg_cron |
+| RLS automated tests | **DONE** | `supabase/tests/rls_security.test.sql` |
+
+### 4. API & backend
+
+| Requirement | Status | Implementation |
+|-------------|--------|----------------|
+| Rate limits (auth, schedules, top-up) | **DONE** | `check_rate_limit` + per-endpoint keys |
+| M-Pesa phone regex 07/01 | **DONE** | `_shared/security.ts` |
+| Amount integer 1–70,000 | **DONE** | `_shared/security.ts` |
+| Schedule name max 50 chars | **DONE** | `sanitizeText` |
+| Content-Type application/json | **DONE** | `requireJsonContentType` |
+| Security headers | **DONE** | `cors.ts` (edge), `vercel.json` (frontend) |
+| CORS restricted origin | **DONE** | `APP_URL` in `cors.ts` |
+| Global 1000 req/min/IP | **CONFIG** | Supabase WAF / Cloudflare |
+
+### 5. Frontend
+
+| Requirement | Status | Implementation |
+|-------------|--------|----------------|
+| No tokens in localStorage for custom auth | **GAP** | Supabase-managed session storage |
+| No sensitive data in URL | **DONE** | Routes use path params only for IDs |
+| XSS — no dangerouslySetInnerHTML | **DONE** | React default escaping |
+| Mask M-Pesa in UI | **DONE** | `maskPhone()` — `07XX XXX 678` |
+| Auto logout 10 min inactivity | **DONE** | `useInactivityLogout` in `AppLayout` |
+| Strip console.log in production | **DONE** | `vite.config.js` esbuild drop |
+
+### 6. Scheduler
+
+| Requirement | Status | Implementation |
+|-------------|--------|----------------|
+| Service role only | **DONE** | `b2c-send` + `process_due_sends` RPC lockdown |
+| Balance re-read before send | **DONE** | `b2c-send` + `mark_send_success` |
+| No double sends | **DONE** | Status `PENDING` → `PENDING_B2C_CONFIRM` with row lock |
+| Failed send — no auto retry | **DONE** | Marks FAILED; manual investigation |
+| Max send Ksh 70,000 | **DONE** | DB + edge validation |
+| Cron logging | **CONFIG** | Log `process_due_sends()` return value via pg_cron |
+
+### 7. Infrastructure
+
+| Requirement | Status | Implementation |
+|-------------|--------|----------------|
+| npm audit on deploy | **DONE** | `npm run build` runs `audit:prod` |
+| Dependabot | **DONE** | `.github/dependabot.yml` |
+| Lock file committed | **DONE** | `package-lock.json` |
+| git-secrets scan | **CONFIG** | Run before first push; see below |
+| HTTPS everywhere | **CONFIG** | Vercel/Render + Supabase enforce TLS |
 
 ---
 
-## Production checklist
+## Production secrets (Supabase Edge Functions)
 
-### Supabase Dashboard
+Set via `supabase secrets set`:
 
-1. Run all migrations: `supabase db push`
-2. Deploy edge functions: `supabase functions deploy`
-3. Set edge secrets: service role, Daraja, `MPESA_ENV=production`
-4. Enable ** leaked password protection** and ** MFA** for admin accounts
-5. Restrict **Database** network if using Supabase Pro
-6. Rotate service role key if ever exposed
-7. Review **Auth** → URL configuration (allowed redirects only)
+```bash
+SUPABASE_SERVICE_ROLE_KEY=...
+MPESA_ENV=production
+MPESA_CONSUMER_KEY=...
+MPESA_CONSUMER_SECRET=...
+MPESA_PASSKEY=...
+MPESA_B2C_SECURITY_CREDENTIAL=...
+INTERNAL_WEBHOOK_SECRET=<random 32+ bytes>
+MPESA_CALLBACK_IP_ALLOWLIST=<safaricom IPs, comma-separated>
+APP_URL=https://your-production-domain.com
+```
 
-### M-Pesa / Daraja
-
-1. Register callback URLs pointing to your Supabase functions
-2. Use production credentials only on production project
-3. Monitor Daraja transaction logs daily
-4. Reconcile STK receipts against `deposits` table
-
-### Infrastructure
-
-1. **HTTPS only** (Vercel + Supabase enforce this)
-2. **WAF** — enable on Vercel Pro or Cloudflare in front of app
-3. **Supabase rate limiting** — enable in dashboard
-4. **Alerts** — monitor failed logins, B2C failures
-5. **Backups** — enable PITR on Supabase Pro for financial data
-
-### Secrets rotation
-
-Rotate immediately if compromised:
-
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `MPESA_CONSUMER_SECRET`, `MPESA_PASSKEY`, `MPESA_B2C_SECURITY_CREDENTIAL`
-- `INTERNAL_WEBHOOK_SECRET`
-
----
-
-## What attackers commonly try
-
-| Attack | Mitigation |
-|--------|------------|
-| Forge STK callback | CheckoutRequestID must exist; amount must match deposit |
-| Trigger B2C without cron | `b2c-send` requires service role |
-| Inflate locked balance via API | Triggers block client writes to balance fields |
-| Self-verify M-Pesa | `is_verified` only via `confirm-mpesa` (service role) |
-| Reset password by phone | Endpoint disabled |
-| SQL injection | Supabase parameterized queries + RLS |
-
----
-
-## Reporting vulnerabilities
-
-Email security issues privately to the project owner. Do not open public GitHub issues for exploitable bugs.
+Obtain Safaricom callback IP ranges from Safaricom Daraja support and update when they change.
 
 ---
 
 ## Deploy security update
 
 ```bash
-supabase db push
-supabase functions deploy confirm-mpesa create-schedule stk-callback b2c-send b2c-result b2c-timeout reset-password
+supabase db push                                    # applies 0012_security_checklist.sql
+supabase functions deploy                           # all edge functions
+supabase secrets set APP_URL=... MPESA_CALLBACK_IP_ALLOWLIST=... INTERNAL_WEBHOOK_SECRET=...
+npm run build                                       # includes npm audit
 ```
 
-Then redeploy the frontend so `vercel.json` headers take effect.
+Redeploy frontend so `vercel.json` headers take effect.
+
+### Daily reconciliation (pg_cron)
+
+```sql
+select cron.schedule(
+  'jiokoe-reconcile',
+  '0 3 * * *',
+  $$ select * from public.reconcile_locked_balances(); $$
+);
+```
+
+Alert if any row returned (locked balance less than pending debits).
+
+### Callback log purge (weekly)
+
+```sql
+select cron.schedule(
+  'jiokoe-purge-callback-logs',
+  '0 4 * * 0',
+  $$ select public.purge_old_callback_logs(); $$
+);
+```
+
+---
+
+## Pre-launch checklist
+
+| Item | Owner |
+|------|-------|
+| External pen test or OWASP ZAP scan | Engineering |
+| RLS tests run against staging | Engineering |
+| Spoofed callback tests rejected | Engineering |
+| Reconciliation cron scheduled | Ops |
+| securityheaders.com → A or better | Ops |
+| SSL Labs A+ | Ops |
+| `npm audit` zero critical | CI |
+| git-secrets scan passed | Engineering |
+| Auth brute-force test | Engineering |
+| Incident response runbook reviewed | Founder |
+| Privacy policy published | Legal |
+
+---
+
+## Incident response (summary)
+
+| Scenario | Immediate action |
+|----------|------------------|
+| Balance manipulation | Halt B2C sends; freeze affected accounts |
+| Daraja credential compromise | Rotate via Safaricom portal; invalidate tokens |
+| Database breach | Revoke Supabase keys; force logout all users |
+| Fake callback detected | Reverse credits; audit last 24h callbacks |
+
+---
+
+## Reporting vulnerabilities
+
+Email security issues privately to the project owner. Do not open public GitHub issues for exploitable bugs.

@@ -170,6 +170,54 @@ async function resetPassword({ email }) {
   return true
 }
 
+const PASSCODE_RESET_PREFIX = 'jiokoe_passcode_reset_'
+
+async function requestPasscodeReset() {
+  await delay(300)
+  const session = getSession()
+  if (!session) throw new Error('Not signed in')
+  const db = loadDb()
+  const user = db.users.find((u) => u.id === session.userId)
+  if (!user?.email) throw new Error('No email on your account.')
+
+  const token = uid()
+  localStorage.setItem(
+    `${PASSCODE_RESET_PREFIX}${token}`,
+    JSON.stringify({ userId: session.userId, exp: Date.now() + 15 * 60 * 1000 }),
+  )
+
+  return {
+    sent: true,
+    email: user.email,
+    devResetUrl: `${window.location.origin}/reset-passcode?token=${token}`,
+  }
+}
+
+function readPasscodeResetToken(token) {
+  const raw = localStorage.getItem(`${PASSCODE_RESET_PREFIX}${token}`)
+  if (!raw) throw new Error('Invalid or expired reset link.')
+  const parsed = JSON.parse(raw)
+  if (Date.now() > parsed.exp) throw new Error('Reset link expired. Request a new one.')
+  const session = getSession()
+  if (!session || session.userId !== parsed.userId) {
+    throw new Error('Sign in with the same account, then open the link again.')
+  }
+  return parsed
+}
+
+async function verifyPasscodeResetToken({ token }) {
+  await delay(150)
+  readPasscodeResetToken(token)
+  return { ok: true }
+}
+
+async function completePasscodeReset({ token }) {
+  await delay(150)
+  readPasscodeResetToken(token)
+  localStorage.removeItem(`${PASSCODE_RESET_PREFIX}${token}`)
+  return { ok: true }
+}
+
 async function updatePassword({ newPassword }) {
   await delay()
   const db = loadDb()
@@ -231,7 +279,8 @@ async function createSchedule(payload) {
   const nameTaken = db.schedules.some(
     (s) =>
       s.user_id === session.userId &&
-      String(s.name || '').trim().toLowerCase() === nameNorm.toLowerCase(),
+      String(s.name || '').trim().toLowerCase() === nameNorm.toLowerCase() &&
+      !(s.status === 'PAUSED' && !s.total_deposited && !s.locked_balance),
   )
   if (nameTaken) throw new Error('You already have a schedule with this name. Pick another.')
 
@@ -401,12 +450,40 @@ async function confirmDeposit(depositId) {
   return { schedule, mpesaReference: deposit.mpesa_reference }
 }
 
+function isEstablishedSchedule(schedule) {
+  if (!schedule) return false
+  return schedule.status !== 'PAUSED' || Number(schedule.total_deposited) > 0 || Number(schedule.locked_balance) > 0
+}
+
+function abandonUnpaidSchedule(scheduleId) {
+  const db = loadDb()
+  const schedule = db.schedules.find((s) => s.id === scheduleId)
+  if (!schedule || schedule.status !== 'PAUSED' || schedule.total_deposited > 0 || schedule.locked_balance > 0) {
+    return false
+  }
+  const hasConfirmed = db.deposits.some((d) => d.schedule_id === scheduleId && d.status === 'CONFIRMED')
+  if (hasConfirmed) return false
+
+  db.schedules = db.schedules.filter((s) => s.id !== scheduleId)
+  db.slots = db.slots.filter((s) => s.schedule_id !== scheduleId)
+  db.deposits = db.deposits.filter((d) => d.schedule_id !== scheduleId)
+  db.transactions = db.transactions.filter((t) => t.schedule_id !== scheduleId)
+  saveDb(db)
+  return true
+}
+
+async function abandonSchedule(scheduleId) {
+  await delay(100)
+  return { removed: abandonUnpaidSchedule(scheduleId) }
+}
+
 async function listSchedules() {
   const db = loadDb()
   const session = getSession()
   if (!session) return []
   return db.schedules
     .filter((s) => s.user_id === session.userId)
+    .filter(isEstablishedSchedule)
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 }
 
@@ -606,9 +683,13 @@ export const mockBackend = {
   confirmMpesaNumber,
   resetPassword,
   updatePassword,
+  requestPasscodeReset,
+  verifyPasscodeResetToken,
+  completePasscodeReset,
   createSchedule,
   addFunds,
   confirmDeposit,
+  abandonSchedule,
   listSchedules,
   getSchedule,
   listTransactions,

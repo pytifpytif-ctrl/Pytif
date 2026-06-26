@@ -6,9 +6,11 @@
   "description": "Jiokoe — a commitment wallet. Lock your money, get it back on your own schedule.",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run audit:prod && npm run pwa:icons && vite build",
     "preview": "vite preview",
-    "start": "serve -s dist -l ${PORT:-10000}"
+    "start": "serve -s dist -l ${PORT:-10000}",
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
+    "pwa:icons": "node scripts/generate-pwa-icons.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
@@ -24,6 +26,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47",
+    "sharp": "^0.35.2",
     "tailwindcss": "^3.4.13",
     "vite": "^5.4.8",
     "vite-plugin-pwa": "^1.3.0"

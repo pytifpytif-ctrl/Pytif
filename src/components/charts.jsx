@@ -74,7 +74,14 @@ export function MiniBars({ data = [], height = 120, accentIndex }) {
 }
 
 /** Line + area chart with axes. data: [{ label, value }], tone: 'orange' | 'accent'. */
-export function DayChart({ data = [], height = 200, tone = 'orange', formatValue = (v) => String(v), fill = false }) {
+export function DayChart({
+  data = [],
+  height = 200,
+  tone = 'orange',
+  formatValue = (v) => String(v),
+  formatTip = null,
+  fill = false,
+}) {
   const [ready, setReady] = useState(false)
   useEffect(() => {
     const id = requestAnimationFrame(() => setReady(true))
@@ -86,15 +93,23 @@ export function DayChart({ data = [], height = 200, tone = 'orange', formatValue
       ? { stroke: '#00c896', fill: 'rgba(0,200,150,0.18)', dot: '#00a87e' }
       : { stroke: '#f97316', fill: 'rgba(249,115,22,0.18)', dot: '#ea580c' }
 
-  const pad = { t: 16, r: 12, b: 32, l: 44 }
-  const w = 320
-  const h = height
-  const plotW = w - pad.l - pad.r
-  const plotH = h - pad.t - pad.b
-
+  const tip = formatTip || formatValue
   const maxVal = Math.max(1, ...data.map((d) => d.value))
   const yMax = niceCeil(maxVal)
   const ticks = [0, yMax / 2, yMax].map((v) => Math.round(v))
+  const yLabels = ticks.map(formatValue)
+  const maxYLabelLen = Math.max(...yLabels.map((s) => String(s).length), 1)
+
+  const w = 320
+  const h = height
+  const pad = {
+    t: 12,
+    r: 12,
+    b: 26,
+    l: Math.max(36, maxYLabelLen * 7 + 8),
+  }
+  const plotW = w - pad.l - pad.r
+  const plotH = h - pad.t - pad.b
 
   const n = data.length
   const xAt = (i) => pad.l + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW)
@@ -107,15 +122,31 @@ export function DayChart({ data = [], height = 200, tone = 'orange', formatValue
       ? `${linePath} L ${points[points.length - 1].x} ${pad.t + plotH} L ${points[0].x} ${pad.t + plotH} Z`
       : ''
 
+  const axisText = {
+    fontSize: 11,
+    fontWeight: 500,
+    fontFamily: 'inherit',
+  }
+
   return (
     <div className={fill ? 'h-full min-h-[72px] w-full' : 'w-full'} style={fill ? undefined : { height: h + 4 }}>
-      <svg viewBox={`0 0 ${w} ${h}`} className="h-full w-full overflow-visible" preserveAspectRatio="none">
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        className="h-full w-full overflow-visible"
+        preserveAspectRatio="xMidYMid meet"
+      >
         {ticks.map((tick) => {
           const y = yAt(tick)
           return (
             <g key={tick}>
               <line x1={pad.l} y1={y} x2={w - pad.r} y2={y} stroke="currentColor" className="text-line" strokeWidth="1" />
-              <text x={pad.l - 8} y={y + 4} textAnchor="end" className="fill-ink-muted" style={{ fontSize: 9 }}>
+              <text
+                x={pad.l - 6}
+                y={y + 4}
+                textAnchor="end"
+                className="fill-ink-muted"
+                style={axisText}
+              >
                 {formatValue(tick)}
               </text>
             </g>
@@ -156,12 +187,19 @@ export function DayChart({ data = [], height = 200, tone = 'orange', formatValue
               strokeWidth="2"
               style={{ transition: `r 0.4s ease ${i * 80}ms` }}
             />
-            <title>{`${p.label}: ${formatValue(p.value)}`}</title>
+            <title>{`${p.label}: ${tip(p.value)}`}</title>
           </g>
         ))}
 
         {points.map((p, i) => (
-          <text key={`x-${i}`} x={p.x} y={h - 8} textAnchor="middle" className="fill-ink-muted" style={{ fontSize: 9 }}>
+          <text
+            key={`x-${i}`}
+            x={p.x}
+            y={h - 6}
+            textAnchor={i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'}
+            className="fill-ink-muted"
+            style={axisText}
+          >
             {p.label}
           </text>
         ))}

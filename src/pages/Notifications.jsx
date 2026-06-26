@@ -150,19 +150,22 @@ export default function Notifications() {
       {/* Fixed top chrome on mobile: header + summary + filters */}
       <div
         ref={topChromeRef}
-        className="page-top-chrome page-top-chrome-dark z-40 shrink-0 max-lg:fixed max-lg:inset-x-0 max-lg:top-0 max-lg:px-5 max-lg:pb-3 max-lg:pt-[env(safe-area-inset-top,0px)] lg:static lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-0 lg:backdrop-blur-none"
+        className="page-top-chrome page-top-chrome-dark z-40 shrink-0 max-lg:fixed max-lg:inset-x-0 max-lg:top-0 max-lg:px-5 max-lg:pb-2.5 max-lg:pt-[calc(0.75rem+env(safe-area-inset-top,0px))] lg:static lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-2 lg:backdrop-blur-none"
       >
         <ScreenHeader
           embedded
           inverse
+          compact
+          dense
           title="Notifications"
           subtitle={unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
           back="/app"
+          hideBackOnDesktop
           right={
             unreadCount > 0 ? (
               <button
                 onClick={markAllRead}
-                className="press whitespace-nowrap rounded-full border border-neutral-600 bg-neutral-800 px-2.5 py-1 text-[11px] font-semibold leading-none text-neutral-200 shadow-card transition-colors hover:text-white lg:border-line lg:bg-surface lg:px-3 lg:py-1.5 lg:text-ink-soft lg:text-xs lg:hover:text-ink"
+                className="press whitespace-nowrap rounded-full border border-neutral-600 bg-neutral-800 px-2 py-0.5 text-[10px] font-semibold leading-none text-neutral-200 shadow-card transition-colors hover:text-white lg:border-line lg:bg-surface lg:px-2.5 lg:py-1 lg:text-[11px] lg:text-ink-soft lg:hover:text-ink"
               >
                 <span className="lg:hidden">Mark read</span>
                 <span className="hidden lg:inline">Mark all read</span>
@@ -171,35 +174,35 @@ export default function Notifications() {
           }
         />
 
-        <div className="mt-3 grid grid-cols-2 gap-2 lg:mt-5 lg:gap-3">
-          <div className="card flex min-w-0 items-center gap-2.5 p-3 lg:gap-3 lg:p-4">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent-500/12 text-accent-600 dark:text-accent-300 lg:h-10 lg:w-10">
-              <Icon name="arrowDownLeft" size={17} className="lg:hidden" />
-              <Icon name="arrowDownLeft" size={18} className="hidden lg:block" />
+        <div className="mt-2 grid grid-cols-2 gap-1.5 lg:mt-4 lg:gap-2">
+          <div className="card flex min-w-0 items-center gap-2 p-2 lg:gap-2.5 lg:p-3">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-accent-500/12 text-accent-600 dark:text-accent-300 lg:h-8 lg:w-8 lg:rounded-xl">
+              <Icon name="arrowDownLeft" size={14} className="lg:hidden" />
+              <Icon name="arrowDownLeft" size={15} className="hidden lg:block" />
             </span>
             <div className="min-w-0">
-              <p className="text-[11px] text-ink-muted lg:text-xs">Total in</p>
-              <p className="truncate text-sm font-bold text-ink lg:text-base">{mask(formatKes(totalIn))}</p>
+              <p className="text-[10px] text-ink-muted lg:text-[11px]">Total in</p>
+              <p className="truncate text-xs font-bold text-ink lg:text-sm">{mask(formatKes(totalIn))}</p>
             </div>
           </div>
-          <div className="card flex min-w-0 items-center gap-2.5 p-3 lg:gap-3 lg:p-4">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-orange-500/12 text-orange-600 dark:text-orange-300 lg:h-10 lg:w-10">
-              <Icon name="arrowUpRight" size={17} className="lg:hidden" />
-              <Icon name="arrowUpRight" size={18} className="hidden lg:block" />
+          <div className="card flex min-w-0 items-center gap-2 p-2 lg:gap-2.5 lg:p-3">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-orange-500/12 text-orange-600 dark:text-orange-300 lg:h-8 lg:w-8 lg:rounded-xl">
+              <Icon name="arrowUpRight" size={14} className="lg:hidden" />
+              <Icon name="arrowUpRight" size={15} className="hidden lg:block" />
             </span>
             <div className="min-w-0">
-              <p className="text-[11px] text-ink-muted lg:text-xs">Total paid out</p>
-              <p className="truncate text-sm font-bold text-ink lg:text-base">{mask(formatKes(totalOut))}</p>
+              <p className="text-[10px] text-ink-muted lg:text-[11px]">Total paid out</p>
+              <p className="truncate text-xs font-bold text-ink lg:text-sm">{mask(formatKes(totalOut))}</p>
             </div>
           </div>
         </div>
 
-        <div className="scroll-area mt-3 flex gap-2 overflow-x-auto pb-0.5 lg:mt-4 lg:overflow-visible">
+        <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto pb-0.5 lg:mt-3 lg:gap-2 lg:overflow-visible">
           {FILTERS.map((f) => (
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
-              className={`chip press shrink-0 whitespace-nowrap px-3.5 py-1.5 lg:px-4 lg:py-2 ${
+              className={`press shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold lg:px-3 lg:py-1.5 lg:text-xs ${
                 filter === f.id ? 'bg-orange-500 text-white' : 'border border-line bg-surface text-ink-soft shadow-card'
               }`}
             >
@@ -212,7 +215,7 @@ export default function Notifications() {
       {/* Spacer matching fixed chrome height on mobile */}
       <div className="shrink-0 lg:hidden" style={{ height: topChromeHeight || undefined }} aria-hidden />
 
-      <div className="scroll-area min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pb-[calc(6rem+env(safe-area-inset-bottom,0px))] pt-4 lg:pb-0 lg:pt-5">
+      <div className="no-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pb-[calc(6rem+env(safe-area-inset-bottom,0px))] pt-3 lg:pb-0 lg:pt-4">
         {events.length === 0 ? (
           <EmptyState icon="bell" title="Nothing here yet" subtitle="Deposits and payouts will appear here in detail." />
         ) : (
@@ -303,35 +306,38 @@ function DetailModal({ e, mask, onClose }) {
       aria-labelledby="notif-detail-title"
     >
       <div
-        className="card mx-auto w-full max-w-sm animate-scale-in p-6 shadow-float"
+        className="card mx-auto w-full max-w-sm animate-scale-in p-4 shadow-float"
         onClick={(ev) => ev.stopPropagation()}
       >
-        <div className="flex items-start justify-between">
+        <div className="flex items-start gap-3">
           <span
-            className={`grid h-12 w-12 place-items-center rounded-2xl ${
+            className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${
               isIn
                 ? 'bg-accent-500/12 text-accent-600 dark:text-accent-300'
                 : 'bg-orange-500/12 text-orange-600 dark:text-orange-300'
             }`}
           >
-            <Icon name={isIn ? 'arrowDownLeft' : 'arrowUpRight'} size={24} />
+            <Icon name={isIn ? 'arrowDownLeft' : 'arrowUpRight'} size={17} />
           </span>
+          <div className="min-w-0 flex-1">
+            <h2 id="notif-detail-title" className="text-sm font-bold leading-tight text-ink">
+              {e.title}
+            </h2>
+            <p className="mt-0.5 text-lg font-extrabold leading-none tracking-tight text-ink">
+              {mask(formatKes(e.amount))}
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="press grid h-8 w-8 place-items-center rounded-full text-ink-muted transition-colors hover:bg-surface-soft hover:text-ink"
+            className="press -mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-muted transition-colors hover:bg-surface-soft hover:text-ink"
           >
-            <Icon name="close" size={18} />
+            <Icon name="close" size={16} />
           </button>
         </div>
 
-        <h2 id="notif-detail-title" className="mt-4 text-lg font-extrabold text-ink">
-          {e.title}
-        </h2>
-        <p className="text-2xl font-extrabold tracking-tight text-ink">{mask(formatKes(e.amount))}</p>
-
-        <dl className="mt-5 space-y-3 border-t border-line pt-4 text-sm">
+        <dl className="mt-3 space-y-2 border-t border-line pt-3 text-xs">
           <Detail label="Direction" value={isIn ? 'Money in' : 'Payout to your M-Pesa'} />
           <Detail label="Status" value={<StatusBadge status={e.status} />} />
           <Detail label="Schedule" value={e.schedule} />
@@ -346,9 +352,9 @@ function DetailModal({ e, mask, onClose }) {
 
 function Detail({ label, value }) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <dt className="shrink-0 text-ink-muted">{label}</dt>
-      <dd className="min-w-0 truncate text-right font-semibold text-ink">{value}</dd>
+    <div className="flex items-center justify-between gap-3">
+      <dt className="shrink-0 text-[11px] text-ink-muted">{label}</dt>
+      <dd className="min-w-0 truncate text-right text-xs font-semibold text-ink">{value}</dd>
     </div>
   )
 }

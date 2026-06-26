@@ -70,18 +70,20 @@ async function logout() {
   await supabase.auth.signOut()
 }
 
-async function currentUser() {
-  const { data } = await supabase.auth.getUser()
-  if (!data.user) return null
-  const meta = data.user.user_metadata || {}
-  const { data: profile } = await supabase
-    .from('users')
-    .select('id,name,mpesa_number,is_verified,avatar_url')
-    .eq('id', data.user.id)
-    .maybeSingle()
+function isNetworkError(err) {
+  const msg = String(err?.message || err || '').toLowerCase()
+  return (
+    err instanceof TypeError ||
+    msg.includes('failed to fetch') ||
+    msg.includes('network') ||
+    msg.includes('connection')
+  )
+}
 
+function buildUser(authUser, profile) {
+  const meta = authUser.user_metadata || {}
   const base = profile || {
-    id: data.user.id,
+    id: authUser.id,
     name: meta.name || meta.full_name || 'Jiokoe user',
     mpesa_number: null,
     is_verified: false,
@@ -92,11 +94,29 @@ async function currentUser() {
     ...base,
     name: base.name || meta.name || meta.full_name || 'Jiokoe user',
     avatar_url: base.avatar_url || meta.avatar_url || meta.picture || null,
-    email: data.user.email,
-    provider: data.user.app_metadata?.provider || 'email',
+    email: authUser.email,
+    provider: authUser.app_metadata?.provider || 'email',
     mpesa_number: phoneVerified ? rawMpesa : null,
     is_verified: phoneVerified,
     needs_onboarding: !phoneVerified,
+  }
+}
+
+async function currentUser() {
+  try {
+    const { data } = await supabase.auth.getUser()
+    if (!data.user) return null
+    const { data: profile } = await supabase
+      .from('users')
+      .select('id,name,mpesa_number,is_verified,avatar_url')
+      .eq('id', data.user.id)
+      .maybeSingle()
+    return buildUser(data.user, profile)
+  } catch (err) {
+    if (!isNetworkError(err)) throw err
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData.session?.user) return null
+    return buildUser(sessionData.session.user, null)
   }
 }
 
@@ -186,6 +206,36 @@ async function resetPassword({ email }) {
   return true
 }
 
+async function requestPasscodeReset() {
+  const { data, error } = await supabase.functions.invoke('request-passcode-reset', { body: {} })
+  if (error) throw new Error(await readFnError(error, 'Could not send reset email.'))
+  if (data?.error) throw new Error(formatApiError(data.error, 'Could not send reset email.'))
+  return {
+    sent: true,
+    email: data.email,
+    emailed: data.emailed,
+    devResetUrl: data.devResetUrl,
+  }
+}
+
+async function verifyPasscodeResetToken({ token }) {
+  const { data, error } = await supabase.functions.invoke('verify-passcode-reset', {
+    body: { token },
+  })
+  if (error) throw new Error(await readFnError(error, 'Invalid reset link.'))
+  if (data?.error) throw new Error(formatApiError(data.error, 'Invalid reset link.'))
+  return data
+}
+
+async function completePasscodeReset({ token }) {
+  const { data, error } = await supabase.functions.invoke('complete-passcode-reset', {
+    body: { token },
+  })
+  if (error) throw new Error(await readFnError(error, 'Could not complete reset.'))
+  if (data?.error) throw new Error(formatApiError(data.error, 'Could not complete reset.'))
+  return data
+}
+
 /** Set a new password for the user currently in a recovery session. */
 async function updatePassword({ newPassword }) {
   const { error } = await supabase.auth.updateUser({ password: newPassword })
@@ -212,6 +262,9 @@ function formatApiError(value, fallback) {
 
 async function readFnError(error, fallback) {
   const raw = error?.message || ''
+  if (/edge function|functions\.invoke|cors|preflight|failed to send a request/i.test(raw)) {
+    return 'Passcode reset is not available yet. Deploy the request-passcode-reset edge function, then retry.'
+  }
   if (/failed to fetch|failed to load|networkerror|load resource/i.test(raw)) {
     return 'Could not reach the server. Log in again, then retry.'
   }
@@ -238,14 +291,6 @@ async function createSchedule(payload) {
   })
   if (error) throw new Error(await readFnError(error, 'Could not create schedule.'))
   if (data?.error) throw new Error(formatApiError(data.error, 'Could not create schedule.'))
-  if (data?.stkError) {
-    const detail = formatApiError(data.stkError, '')
-    throw new Error(
-      detail && !detail.startsWith('{')
-        ? detail
-        : "Couldn't start the M-Pesa prompt. Please try again in a moment.",
-    )
-  }
   return {
     scheduleId: data.scheduleId,
     depositId: data.depositId,
@@ -297,12 +342,26 @@ async function confirmDeposit(depositId) {
   throw new Error('Timed out waiting for payment confirmation.')
 }
 
+function isEstablishedSchedule(schedule) {
+  if (!schedule) return false
+  return schedule.status !== 'PAUSED' || Number(schedule.total_deposited) > 0 || Number(schedule.locked_balance) > 0
+}
+
+async function abandonSchedule(scheduleId) {
+  if (!scheduleId) return { removed: false }
+  const { data, error } = await supabase.functions.invoke('abandon-schedule', {
+    body: { scheduleId },
+  })
+  if (error) return { removed: false }
+  return { removed: Boolean(data?.removed) }
+}
+
 async function listSchedules() {
   const { data } = await supabase
     .from('schedules')
     .select('*')
     .order('created_at', { ascending: false })
-  return data || []
+  return (data || []).filter(isEstablishedSchedule)
 }
 
 async function getSchedule(id) {
@@ -418,9 +477,13 @@ export const supabaseBackend = {
   confirmMpesaNumber,
   resetPassword,
   updatePassword,
+  requestPasscodeReset,
+  verifyPasscodeResetToken,
+  completePasscodeReset,
   createSchedule,
   addFunds,
   confirmDeposit,
+  abandonSchedule,
   listSchedules,
   getSchedule,
   listTransactions,

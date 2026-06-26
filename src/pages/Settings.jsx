@@ -1,17 +1,20 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { Avatar, ScreenHeader, Spinner } from '../components/ui.jsx'
 import { Icon } from '../components/icons.jsx'
 import MpesaSetup from '../components/MpesaSetup.jsx'
-import { formatPhone } from '../lib/format.js'
+import AppPasscodeSetup from '../components/AppPasscodeSetup.jsx'
+import { maskPhone } from '../lib/format.js'
 
 export default function Settings() {
   const { user, logout, uploadAvatar } = useAuth()
   const navigate = useNavigate()
-  const [editingNumber, setEditingNumber] = useState(false)
+  const [mpesaModalOpen, setMpesaModalOpen] = useState(false)
   const fileRef = useRef(null)
+  const topChromeRef = useRef(null)
+  const [topChromeHeight, setTopChromeHeight] = useState(0)
   const [uploading, setUploading] = useState(false)
   const [avatarError, setAvatarError] = useState('')
 
@@ -37,15 +40,50 @@ export default function Settings() {
     navigate('/login')
   }
 
-  return (
-    <div className="animate-fade-in mx-auto max-w-2xl">
-      <ScreenHeader inverse title="Profile" subtitle="Manage your account and payout number" />
+  useLayoutEffect(() => {
+    const el = topChromeRef.current
+    if (!el) return undefined
 
-      <div className="space-y-6">
+    const update = () => setTopChromeHeight(el.getBoundingClientRect().height)
+    update()
+
+    const mq = window.matchMedia('(max-width: 1023px)')
+    const onMq = () => update()
+    mq.addEventListener('change', onMq)
+
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+
+    return () => {
+      mq.removeEventListener('change', onMq)
+      ro.disconnect()
+    }
+  }, [])
+
+  return (
+    <div className="mx-auto flex min-h-0 w-full min-w-0 max-w-2xl flex-1 flex-col overflow-hidden">
+      <div
+        ref={topChromeRef}
+        className="page-top-chrome page-top-chrome-dark z-40 shrink-0 max-lg:fixed max-lg:inset-x-0 max-lg:top-0 max-lg:px-5 max-lg:pb-2.5 max-lg:pt-[calc(0.75rem+env(safe-area-inset-top,0px))] lg:static lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-2 lg:backdrop-blur-none"
+      >
+        <ScreenHeader
+          embedded
+          inverse
+          compact
+          dense
+          title="Profile"
+          subtitle="Account & payout"
+        />
+      </div>
+
+      <div className="shrink-0 lg:hidden" style={{ height: topChromeHeight || undefined }} aria-hidden />
+
+      <div className="no-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pb-[calc(6rem+env(safe-area-inset-bottom,0px))] pt-3 lg:pb-8 lg:pt-4">
+        <div className="space-y-4">
         {/* Profile identity */}
-        <section className="relative overflow-hidden rounded-3xl border border-line bg-surface p-5 shadow-card sm:p-6">
+        <section className="relative overflow-hidden rounded-2xl border border-line bg-surface p-4 shadow-card">
           <div aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-orange-500/10 blur-2xl" />
-          <div className="relative flex items-center gap-4">
+          <div className="relative flex items-center gap-3">
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
@@ -53,21 +91,21 @@ export default function Settings() {
               aria-label="Change profile picture"
             >
               <span className="block rounded-full ring-2 ring-orange-500/30 ring-offset-2 ring-offset-surface">
-                <Avatar src={user?.avatar_url} name={user?.name} size={72} rounded="rounded-full" />
+                <Avatar src={user?.avatar_url} name={user?.name} size={56} rounded="rounded-full" />
               </span>
-              <span className="absolute bottom-0 right-0 grid h-7 w-7 place-items-center rounded-full border-2 border-surface bg-orange-500 text-white">
-                {uploading ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="camera" size={13} />}
+              <span className="absolute bottom-0 right-0 grid h-6 w-6 place-items-center rounded-full border-2 border-surface bg-orange-500 text-white">
+                {uploading ? <Spinner className="h-3 w-3" /> : <Icon name="camera" size={11} />}
               </span>
             </button>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-lg font-extrabold text-ink">{user?.name || 'Your account'}</p>
-              {user?.email && <p className="truncate text-sm text-ink-muted">{user.email}</p>}
+              <p className="truncate text-base font-extrabold text-ink">{user?.name || 'Your account'}</p>
+              {user?.email && <p className="truncate text-xs text-ink-muted">{user.email}</p>}
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="mt-1.5 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-600 dark:text-orange-400"
+                className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-orange-600 dark:text-orange-400"
               >
-                <Icon name="camera" size={14} />
+                <Icon name="camera" size={12} />
                 {user?.avatar_url ? 'Change photo' : 'Add a photo'}
               </button>
             </div>
@@ -79,63 +117,86 @@ export default function Settings() {
         {/* Payout number */}
         <div>
           <SectionLabel>Payout</SectionLabel>
-          <section className="card p-5">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-500/12 text-accent-600 dark:text-accent-300">
-                <Icon name="phone" size={18} />
+          <section className="card p-3.5">
+            <div className="mb-2.5 flex items-center gap-2.5">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent-500/12 text-accent-600 dark:text-accent-300">
+                <Icon name="phone" size={16} />
               </span>
-              <div>
-                <h2 className="font-bold text-ink">Payout M-Pesa number</h2>
-                <p className="text-xs text-ink-muted">Where Jiokoe sends your scheduled money.</p>
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-ink">Payout M-Pesa number</h2>
+                <p className="text-[11px] text-ink-muted">Where scheduled money is sent.</p>
               </div>
             </div>
 
-            {hasVerifiedNumber && !editingNumber ? (
-              <div className="flex items-center justify-between rounded-2xl border border-line bg-surface-soft px-4 py-3.5">
-                <div className="flex items-center gap-3">
-                  <span className="grid h-9 w-9 place-items-center rounded-full bg-accent-500/12 text-accent-600 dark:text-accent-300">
-                    <Icon name="check" size={18} />
-                  </span>
-                  <div>
-                    <p className="font-bold text-ink">{formatPhone(user.mpesa_number)}</p>
-                    <p className="text-xs text-accent-600 dark:text-accent-300">Saved</p>
+            {hasVerifiedNumber ? (
+              <>
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-line bg-surface-soft px-3 py-2.5">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-500/12 text-accent-600 dark:text-accent-300">
+                      <Icon name="check" size={15} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-ink">{maskPhone(user.mpesa_number)}</p>
+                      <p className="text-[10px] font-medium text-accent-600 dark:text-accent-300">Saved</p>
+                    </div>
                   </div>
+                  <button
+                    onClick={() => setMpesaModalOpen(true)}
+                    className="press shrink-0 rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-ink-soft transition-colors hover:text-ink"
+                  >
+                    Change
+                  </button>
                 </div>
-                <button
-                  onClick={() => setEditingNumber(true)}
-                  className="press rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink"
-                >
-                  Change
-                </button>
-              </div>
+                {mpesaModalOpen && (
+                  <MpesaSetup
+                    onDone={() => setMpesaModalOpen(false)}
+                    onCancel={() => setMpesaModalOpen(false)}
+                  />
+                )}
+              </>
             ) : (
               <>
-                {!hasVerifiedNumber && (
-                  <p className="mb-4 rounded-2xl bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200">
-                    Add and verify your M-Pesa number to start locking money.
-                  </p>
+                <p className="mb-3 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-200">
+                  Add and verify your M-Pesa number to start locking money.
+                </p>
+                {!mpesaModalOpen && (
+                  <button
+                    type="button"
+                    onClick={() => setMpesaModalOpen(true)}
+                    className="press w-full rounded-xl border border-dashed border-accent-500/40 bg-accent-500/5 px-3 py-2.5 text-xs font-semibold text-accent-600 transition hover:bg-accent-500/10 dark:text-accent-300"
+                  >
+                    Add M-Pesa number
+                  </button>
                 )}
-                <MpesaSetup
-                  onDone={() => setEditingNumber(false)}
-                  onCancel={hasVerifiedNumber ? () => setEditingNumber(false) : undefined}
-                />
+                {mpesaModalOpen && (
+                  <MpesaSetup
+                    onDone={() => setMpesaModalOpen(false)}
+                    onCancel={() => setMpesaModalOpen(false)}
+                  />
+                )}
               </>
             )}
           </section>
         </div>
 
+        {/* Security — optional app passcode */}
+        <div>
+          <SectionLabel>Security</SectionLabel>
+          <AppPasscodeSetup userId={user?.id} />
+        </div>
+
         {/* Preferences */}
         <div>
           <SectionLabel>Preferences</SectionLabel>
-          <section className="card p-5">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-500/12 text-orange-600 dark:text-orange-300">
-                  <Icon name="moon" size={18} />
+          <section className="card p-3.5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-orange-500/12 text-orange-600 dark:text-orange-300">
+                  <Icon name="moon" size={16} />
                 </span>
-                <div>
-                  <h2 className="font-bold text-ink">Appearance</h2>
-                  <p className="text-xs text-ink-muted">Choose light or dark mode.</p>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-bold text-ink">Appearance</h2>
+                  <p className="text-[11px] text-ink-muted">Light or dark mode</p>
                 </div>
               </div>
               <ThemeSegment />
@@ -154,15 +215,14 @@ export default function Settings() {
           <span className="flex-1 text-sm font-semibold text-rose-600 dark:text-rose-300">Sign out</span>
           <Icon name="arrowRight" size={14} className="text-rose-400" />
         </button>
-
-        <p className="pb-2 text-center text-xs text-ink-muted">Jiokoe · Phase 1</p>
+        </div>
       </div>
     </div>
   )
 }
 
 function SectionLabel({ children }) {
-  return <p className="mb-2 px-1 text-xs font-bold uppercase tracking-wide text-ink-muted">{children}</p>
+  return <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wide text-ink-muted">{children}</p>
 }
 
 function ThemeSegment() {
@@ -178,11 +238,11 @@ function ThemeSegment() {
           key={o.id}
           type="button"
           onClick={() => setMode(o.id)}
-          className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
+          className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition ${
             mode === o.id ? 'bg-orange-500 text-white shadow-sm' : 'text-ink-muted hover:text-ink'
           }`}
         >
-          <Icon name={o.icon} size={15} />
+          <Icon name={o.icon} size={13} />
           {o.label}
         </button>
       ))}

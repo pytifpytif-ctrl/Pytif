@@ -5,6 +5,7 @@ import { json } from '../_shared/cors.ts'
 import { adminClient } from '../_shared/supabaseAdmin.ts'
 import { b2cPayment } from '../_shared/daraja.ts'
 import { verifyServiceRole, auditLog } from '../_shared/auth.ts'
+import { validateSendAmount } from '../_shared/security.ts'
 
 Deno.serve(async (req) => {
   if (!verifyServiceRole(req)) {
@@ -24,6 +25,15 @@ Deno.serve(async (req) => {
     if (!txn) return json({ error: 'transaction not found' }, 404)
     if (txn.status !== 'PENDING_B2C_CONFIRM') {
       return json({ error: 'transaction not in dispatch state' }, 409)
+    }
+
+    const amountCheck = validateSendAmount(txn.amount)
+    if (!amountCheck.ok) {
+      await supabase.rpc('mark_send_failed', {
+        p_txn_id: transaction_id,
+        p_reason: amountCheck.error,
+      })
+      return json({ ok: false, reason: 'invalid amount' })
     }
 
     const schedule = txn.schedules

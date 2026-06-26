@@ -21,8 +21,8 @@ function groupByDay(items, dateField, limit = 12) {
 }
 
 function dayLabel(day) {
-  const d = new Date(day)
-  return `${d.getDate()}/${d.getMonth() + 1}`
+  const d = new Date(`${day}T12:00:00`)
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
 export default function Analytics() {
@@ -89,14 +89,23 @@ export default function Analytics() {
     <div className="mx-auto flex min-h-0 w-full min-w-0 max-w-2xl flex-1 flex-col overflow-hidden">
       <div
         ref={topChromeRef}
-        className="page-top-chrome page-top-chrome-dark z-40 shrink-0 max-lg:fixed max-lg:inset-x-0 max-lg:top-0 max-lg:px-5 max-lg:pb-3 max-lg:pt-[env(safe-area-inset-top,0px)] lg:static lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-0 lg:backdrop-blur-none"
+        className="page-top-chrome page-top-chrome-dark z-40 shrink-0 max-lg:fixed max-lg:inset-x-0 max-lg:top-0 max-lg:px-5 max-lg:pb-2.5 max-lg:pt-[calc(0.75rem+env(safe-area-inset-top,0px))] lg:static lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-2 lg:backdrop-blur-none"
       >
-        <ScreenHeader embedded inverse title="Analytics" subtitle="Money flowing through your wallet" back="/app" />
+        <ScreenHeader
+          embedded
+          inverse
+          compact
+          dense
+          title="Analytics"
+          subtitle="Money flowing through your wallet"
+          back="/app"
+          hideBackOnDesktop
+        />
       </div>
 
       <div className="shrink-0 lg:hidden" style={{ height: topChromeHeight || undefined }} aria-hidden />
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pt-3 max-lg:gap-2 max-lg:pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] lg:overflow-y-auto lg:scroll-area lg:pb-0 lg:pt-5">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pt-3 max-lg:gap-2 max-lg:overflow-y-auto max-lg:pb-[calc(6rem+env(safe-area-inset-bottom,0px))] lg:overflow-y-auto lg:scroll-area lg:pb-0 lg:pt-5">
         {empty ? (
           <EmptyState icon="analytics" title="No data yet" subtitle="Lock your first schedule to start seeing trends." />
         ) : (
@@ -131,7 +140,8 @@ function ChartCard({ icon, tone, title, subtitle, total, data, mask }) {
     tone === 'accent'
       ? 'bg-accent-500/12 text-accent-600 dark:text-accent-300'
       : 'bg-orange-500/12 text-orange-600 dark:text-orange-300'
-  const fmtAxis = (v) => (v === 0 ? '0' : mask(`Ksh ${formatKesPlain(v)}`))
+  const fmtAxisY = (v) => (v === 0 ? '0' : mask(formatKesPlain(v)))
+  const fmtAxisTip = (v) => (v === 0 ? '0' : mask(`Ksh ${formatKesPlain(v)}`))
 
   return (
     <section className="card flex min-h-0 flex-col p-3 max-lg:flex-1 lg:p-5">
@@ -153,10 +163,10 @@ function ChartCard({ icon, tone, title, subtitle, total, data, mask }) {
       ) : (
         <div className="min-h-0 flex-1">
           <div className="h-full lg:hidden">
-            <DayChart data={data} height={140} tone={tone} formatValue={fmtAxis} fill />
+            <DayChart data={data} height={140} tone={tone} formatValue={fmtAxisY} formatTip={fmtAxisTip} fill />
           </div>
           <div className="hidden lg:block">
-            <DayChart data={data} height={200} tone={tone} formatValue={fmtAxis} />
+            <DayChart data={data} height={200} tone={tone} formatValue={fmtAxisY} formatTip={fmtAxisTip} />
           </div>
         </div>
       )}

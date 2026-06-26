@@ -8,7 +8,7 @@ export function normalizePhone(num: string): string {
 }
 
 export function isValidPhone(num: string): boolean {
-  return /^0\d{9}$/.test(num)
+  return /^(07|01)\d{8}$/.test(num)
 }
 
 export function generateCode(): string {

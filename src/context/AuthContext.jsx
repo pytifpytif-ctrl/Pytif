@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { api } from '../lib/api.js'
+import { clearUnlock } from '../lib/appPasscode.js'
 
 const AuthContext = createContext(null)
 
@@ -22,6 +23,8 @@ export function AuthProvider({ children }) {
       try {
         const u = await api.currentUser()
         if (mounted) setUser(u)
+      } catch {
+        if (mounted) setUser(null)
       } finally {
         if (mounted) setLoading(false)
       }
@@ -29,8 +32,12 @@ export function AuthProvider({ children }) {
 
     // Resolve OAuth redirects (Google) and keep the session in sync.
     const unsubscribe = api.onAuthChange?.(async () => {
-      const u = await api.currentUser()
-      if (mounted) setUser(u)
+      try {
+        const u = await api.currentUser()
+        if (mounted) setUser(u)
+      } catch {
+        /* Ignore transient network blips during token refresh. */
+      }
     })
 
     return () => {
@@ -54,9 +61,11 @@ export function AuthProvider({ children }) {
   }, [])
 
   const logout = useCallback(async () => {
+    const id = user?.id
     await api.logout()
+    if (id) clearUnlock(id)
     setUser(null)
-  }, [])
+  }, [user?.id])
 
   const signInWithGoogle = useCallback(async () => {
     await api.signInWithGoogle()

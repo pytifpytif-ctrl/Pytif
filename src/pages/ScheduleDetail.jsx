@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api.js'
 import { useScheduler } from '../hooks/useScheduler.js'
+import { useHidePageScrollbar } from '../hooks/useHidePageScrollbar.js'
 import { ScreenHeader, Spinner, StatusBadge, Alert } from '../components/ui.jsx'
 import { Icon } from '../components/icons.jsx'
-import { formatKes, formatTime12, formatDateShort, formatDateLong, formatDateTime, formatPhone } from '../lib/format.js'
+import { formatKes, formatTime12, formatDateShort, formatDateLong, maskPhone } from '../lib/format.js'
 import { PATTERNS, WEEKDAY_LABELS, fromDateKey } from '../lib/schedule.js'
 
 export default function ScheduleDetail() {
@@ -26,6 +27,7 @@ export default function ScheduleDetail() {
   }, [load])
 
   useScheduler(load)
+  useHidePageScrollbar()
 
   if (loading || !data) {
     return (
@@ -46,22 +48,24 @@ export default function ScheduleDetail() {
     : 0
 
   return (
-    <div className="animate-fade-in mx-auto min-h-screen w-full max-w-4xl px-5 pb-16 pt-2 lg:px-8 lg:pt-8">
-      <ScreenHeader
-        title={schedule.name}
-        subtitle={`To ${formatPhone(schedule.destination_mpesa)}`}
-        back="/app"
-        right={<StatusBadge status={schedule.status} />}
-      />
+    <div className="no-scrollbar animate-fade-in mx-auto flex min-h-screen w-full max-w-4xl flex-col overflow-y-auto px-5 pb-16 lg:px-8 lg:pb-12">
+      <div className="page-top-chrome page-top-chrome-dark sticky top-0 z-30 -mx-5 shrink-0 px-5 pb-3 pt-[max(0.5rem,env(safe-area-inset-top,0px))] lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-0 lg:backdrop-blur-none">
+        <ScreenHeader
+          embedded
+          inverse
+          title={schedule.name}
+          subtitle={`To ${maskPhone(schedule.destination_mpesa)}`}
+          back="/app"
+          right={<StatusBadge status={schedule.status} />}
+        />
+      </div>
 
+      <div className="min-h-0 flex-1 pt-4 lg:pt-6">
       {/* Balance + progress */}
-      <section className="bg-brand-rich relative overflow-hidden rounded-3xl p-6 text-white shadow-glow lg:p-8">
-        <div aria-hidden className="pointer-events-none absolute inset-0">
-          <div className="absolute -right-10 -top-16 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
-          <div className="absolute -right-6 bottom-2 h-28 w-28 rounded-full border border-white/15" />
-        </div>
+      <section className="money-card">
+        <div className="p-6 lg:p-8">
         <p className="relative text-xs font-medium uppercase tracking-wide text-orange-100">Locked balance remaining</p>
-        <p className="mt-1.5 text-3xl font-extrabold">{formatKes(schedule.locked_balance)}</p>
+        <p className="money-card-amount mt-1.5 text-3xl font-extrabold">{formatKes(schedule.locked_balance)}</p>
         <div className="mt-4">
           <div className="mb-1.5 flex justify-between text-xs text-orange-100">
             <span>
@@ -74,6 +78,7 @@ export default function ScheduleDetail() {
           <div className="h-2 w-full overflow-hidden rounded-full bg-white/20">
             <div className="h-full rounded-full bg-white" style={{ width: `${progressPct}%` }} />
           </div>
+        </div>
         </div>
       </section>
 
@@ -104,7 +109,7 @@ export default function ScheduleDetail() {
         {todaySends.length === 0 ? (
           <div className="card p-5 text-sm text-ink-muted">No sends scheduled for today.</div>
         ) : (
-          <div className="space-y-2">
+          <div className="card divide-y divide-line overflow-hidden">
             {todaySends.map((t) => (
               <SendRow key={t.id} t={t} />
             ))}
@@ -126,23 +131,12 @@ export default function ScheduleDetail() {
         {transactions.length === 0 ? (
           <div className="card p-5 text-sm text-ink-muted">No sends yet.</div>
         ) : (
-          <div className="card divide-y divide-line">
+          <div className="card divide-y divide-line overflow-hidden">
             {transactions
               .slice()
               .reverse()
               .map((t) => (
-                <div key={t.id} className="flex items-center justify-between p-4">
-                  <div>
-                    <p className="text-sm font-semibold text-ink">
-                      {formatDateShort(t.scheduled_for)} · {formatTime12(new Date(t.scheduled_for).toTimeString().slice(0, 5))}
-                    </p>
-                    <p className="text-xs text-ink-muted">{t.label || schedule.name}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-ink">{formatKes(t.amount)}</p>
-                    <StatusBadge status={t.status} />
-                  </div>
-                </div>
+                <SendRow key={t.id} t={t} />
               ))}
           </div>
         )}
@@ -188,29 +182,47 @@ export default function ScheduleDetail() {
       </div>
 
       <p className="mt-8 text-center text-xs text-ink-muted">Created {formatDateLong(schedule.created_at)}</p>
+      </div>
     </div>
   )
 }
 
-function SlotTable({ slots }) {
+function TemplateSlotRow({ slot, dayLabel }) {
   return (
-    <div className="card divide-y divide-line">
-      {slots.map((s) => (
-        <div key={s.id} className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
-            <span className="font-bold text-brand-700">{formatTime12(s.send_time)}</span>
-            <span className="text-sm text-ink-muted">{s.label || '—'}</span>
-          </div>
-          <span className="font-semibold text-ink">{formatKes(s.amount)}</span>
+    <div className="flex items-center justify-between gap-3 p-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-orange-500/12 text-orange-600 dark:text-orange-300">
+          <Icon name="clock" size={16} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-ink">{formatTime12(slot.send_time)}</p>
+          <p className="text-xs text-ink-muted">{slot.label?.trim() || dayLabel || 'Send'}</p>
         </div>
-      ))}
+      </div>
+      <p className="shrink-0 text-sm font-bold text-ink">{formatKes(slot.amount)}</p>
     </div>
+  )
+}
+
+function SlotTable({ slots, dayLabel }) {
+  return (
+    <>
+      {slots.map((s) => (
+        <TemplateSlotRow key={s.id} slot={s} dayLabel={dayLabel} />
+      ))}
+    </>
   )
 }
 
 function DailyTemplate({ slots, pattern }) {
   const perDay = slots.some((s) => s.day_key != null && s.day_key !== '')
-  if (!perDay) return <SlotTable slots={slots} />
+  if (!perDay) {
+    return (
+      <div className="card divide-y divide-line overflow-hidden">
+        <SlotTable slots={slots} />
+      </div>
+    )
+  }
 
   const groups = {}
   for (const s of slots) (groups[String(s.day_key)] = groups[String(s.day_key)] || []).push(s)
@@ -223,38 +235,46 @@ function DailyTemplate({ slots, pattern }) {
       : WEEKDAY_LABELS.find((w) => String(w.iso) === key)?.long || key
 
   return (
-    <div className="space-y-4">
-      {orderedKeys.map((key) => (
-        <div key={key}>
-          <p className="mb-1.5 text-xs font-semibold text-ink-soft">{labelFor(key)}</p>
-          <SlotTable slots={[...groups[key]].sort((a, b) => (a.send_time < b.send_time ? -1 : 1))} />
-        </div>
-      ))}
+    <div className="card divide-y divide-line overflow-hidden">
+      {orderedKeys.map((key) => {
+        const dayLabel = labelFor(key)
+        const daySlots = [...groups[key]].sort((a, b) => (a.send_time < b.send_time ? -1 : 1))
+        return (
+          <div key={key}>
+            <p className="bg-surface-soft px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+              {dayLabel}
+            </p>
+            <SlotTable slots={daySlots} dayLabel={dayLabel} />
+          </div>
+        )
+      })}
     </div>
   )
 }
 
 function SendRow({ t }) {
+  const timeStr = new Date(t.scheduled_for).toTimeString().slice(0, 5)
+  const iconTone =
+    t.status === 'SUCCESS'
+      ? 'bg-accent-500/12 text-accent-600 dark:text-accent-300'
+      : t.status === 'FAILED'
+        ? 'bg-rose-500/12 text-rose-600 dark:text-rose-300'
+        : 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
+
   return (
-    <div className="card flex items-center justify-between p-4">
-      <div className="flex items-center gap-3">
-        <span
-          className={`grid h-9 w-9 place-items-center rounded-full ${
-            t.status === 'SUCCESS'
-              ? 'bg-accent-500/12 text-accent-600 dark:text-accent-300'
-              : t.status === 'FAILED'
-                ? 'bg-rose-500/12 text-rose-600 dark:text-rose-300'
-                : 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
-          }`}
-        >
+    <div className="flex items-center justify-between gap-3 p-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${iconTone}`}>
           <Icon name={t.status === 'SUCCESS' ? 'check' : t.status === 'FAILED' ? 'bolt' : 'clock'} size={16} />
         </span>
-        <div>
-          <p className="text-sm font-semibold text-ink">{formatDateTime(t.scheduled_for)}</p>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-ink">
+            {formatDateShort(t.scheduled_for)} · {formatTime12(timeStr)}
+          </p>
           <p className="text-xs text-ink-muted">{t.label || 'Send'}</p>
         </div>
       </div>
-      <div className="text-right">
+      <div className="shrink-0 text-right">
         <p className="text-sm font-bold text-ink">{formatKes(t.amount)}</p>
         <StatusBadge status={t.status} />
       </div>

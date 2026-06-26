@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Avatar, Logo, ThemeToggle } from './ui.jsx'
 import { Icon } from './icons.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useInactivityLogout } from '../hooks/useInactivityLogout.js'
 import PwaInstallPrompt from './PwaInstallPrompt.jsx'
 
 const tabs = [
@@ -14,30 +15,39 @@ const tabs = [
 export default function AppLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  useInactivityLogout(async () => {
+    await logout()
+    navigate('/login', { replace: true, state: { reason: 'inactivity' } })
+  }, Boolean(user))
   const location = useLocation()
   const path = location.pathname
   const isHome = path === '/app'
+  const isHistory = path === '/app/history'
+  const isProfile = path === '/app/profile'
   const isNotifications = path === '/app/notifications'
   const isAnalytics = path === '/app/analytics'
-  const mobileFixed = isHome || isNotifications || isAnalytics
-  const scrollUnderNav = isNotifications
-  const lockPageScroll = isHome || isAnalytics
+  const mobileFixed = isHome || isNotifications || isAnalytics || isHistory || isProfile
+  const scrollUnderNav = mobileFixed
 
   useEffect(() => {
-    if (!lockPageScroll) return undefined
     const mq = window.matchMedia('(max-width: 1023px)')
     const apply = () => {
-      document.documentElement.classList.toggle('home-no-scroll', mq.matches)
-      document.body.classList.toggle('home-no-scroll', mq.matches)
+      const lockMobile = (isHome || isAnalytics) && mq.matches
+      document.documentElement.classList.toggle('home-no-scroll', lockMobile)
+      document.body.classList.toggle('home-no-scroll', lockMobile)
+      document.documentElement.classList.toggle(
+        'hide-page-scrollbar',
+        isHome || isNotifications || isAnalytics || isHistory || isProfile,
+      )
     }
     apply()
     mq.addEventListener('change', apply)
     return () => {
       mq.removeEventListener('change', apply)
-      document.documentElement.classList.remove('home-no-scroll')
+      document.documentElement.classList.remove('home-no-scroll', 'hide-page-scrollbar')
       document.body.classList.remove('home-no-scroll')
     }
-  }, [lockPageScroll])
+  }, [isHome, isAnalytics, isHistory, isNotifications, isProfile])
 
   const signOut = async () => {
     await logout()

@@ -45,18 +45,39 @@ export function formatDateTime(value) {
   )}`
 }
 
-/** Kenyan Safaricom number: 0712345678 */
+/** Kenyan Safaricom number: 07XXXXXXXX or 01XXXXXXXX */
 export function isRealPhone(num) {
   const digits = String(num || '').replace(/\D/g, '')
-  if (digits.startsWith('254') && digits.length === 12) return /^2547\d{8}$/.test(digits)
-  return /^0\d{9}$/.test(digits)
+  if (digits.startsWith('254') && digits.length === 12) {
+    return /^254(7|1)\d{8}$/.test(digits)
+  }
+  return /^(07|01)\d{8}$/.test(digits)
 }
 
-/** Kenyan number formatting helper: 0712345678 -> 0712 345 678 */
+/** Display formatting: 0712 345 678 */
 export function formatPhone(num) {
   const digits = String(num || '').replace(/\D/g, '')
   if (digits.length === 10) {
     return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}`
   }
   return num
+}
+
+/** Masked display for UI: 07XX XXX 678 (checklist §8) */
+export function maskPhone(num) {
+  const digits = String(num || '').replace(/\D/g, '')
+  if (digits.length === 10) {
+    return `${digits.slice(0, 2)}XX XXX ${digits.slice(7)}`
+  }
+  return '***'
+}
+
+/** Masked email for UI: j***@example.com */
+export function maskEmail(email) {
+  const raw = String(email || '').trim()
+  const at = raw.indexOf('@')
+  if (at <= 1) return 'your email'
+  const local = raw.slice(0, at)
+  const domain = raw.slice(at + 1)
+  return `${local[0]}***@${domain}`
 }
