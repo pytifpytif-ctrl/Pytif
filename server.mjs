@@ -6,7 +6,8 @@ import { createReadStream, existsSync } from 'node:fs'
 import { join, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const root = join(fileURLToPath(import.meta.url), 'dist')
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
+const root = join(__dirname, 'dist')
 const port = Number(process.env.PORT) || 10000
 const supabaseBase = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').replace(/\/$/, '')
 
@@ -86,12 +87,25 @@ function serveStatic(req, res, pathname) {
 
   if (existsSync(filePath) && extname(filePath)) {
     res.writeHead(200, { 'Content-Type': MIME_TYPES[extname(filePath)] || 'application/octet-stream' })
-    createReadStream(filePath).pipe(res)
+    createReadStream(filePath).on('error', () => {
+      if (!res.headersSent) res.writeHead(500)
+      res.end()
+    }).pipe(res)
+    return
+  }
+
+  const indexPath = join(root, 'index.html')
+  if (!existsSync(indexPath)) {
+    res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' })
+    res.end('App not built. Run npm run build first.')
     return
   }
 
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
-  createReadStream(join(root, 'index.html')).pipe(res)
+  createReadStream(indexPath).on('error', () => {
+    if (!res.headersSent) res.writeHead(500)
+    res.end()
+  }).pipe(res)
 }
 
 createServer(async (req, res) => {
