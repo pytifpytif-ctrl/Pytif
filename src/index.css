@@ -129,6 +129,14 @@ input[type='number'] {
       border-bottom-color: rgb(38 38 38);
     }
   }
+
+  .legal-prose strong {
+    @apply font-semibold text-ink;
+  }
+
+  .legal-prose a {
+    @apply underline-offset-2 hover:underline;
+  }
 }
 
 @layer utilities {
@@ -242,15 +250,37 @@ input[type='number'] {
     @apply py-2.5;
   }
 
-  /* Landing one-pager — soft fintech welcome canvas (Orient-inspired) */
+  /* Landing one-pager — black canvas, orange accents */
   .landing-shell {
-    background-color: #ece8f4;
+    background-color: #0a0a0a;
     background-image:
-      radial-gradient(ellipse 120% 80% at 50% -20%, rgba(255, 255, 255, 0.9), transparent 55%),
-      radial-gradient(circle at 85% 15%, rgba(249, 115, 22, 0.12), transparent 40%),
-      radial-gradient(circle at 10% 80%, rgba(139, 92, 246, 0.08), transparent 45%),
-      radial-gradient(rgba(0, 0, 0, 0.04) 0.6px, transparent 0.6px);
-    background-size: 100% 100%, 100% 100%, 100% 100%, 18px 18px;
+      radial-gradient(ellipse 90% 60% at 50% -10%, rgba(249, 115, 22, 0.14), transparent 55%),
+      radial-gradient(circle at 90% 20%, rgba(249, 115, 22, 0.08), transparent 40%);
+    color: #fafafa;
+  }
+
+  .dark .landing-shell {
+    background-color: #0a0a0a;
+    color: #fafafa;
+  }
+
+  .landing-shell .landing-card {
+    @apply border-zinc-800 bg-zinc-900 text-zinc-100 shadow-none;
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+  }
+
+  @keyframes landing-status-fill {
+    from {
+      width: 0%;
+    }
+    to {
+      width: 100%;
+    }
+  }
+
+  .landing-status-fill {
+    animation: landing-status-fill linear forwards;
+    width: 0%;
   }
 
   /* Staggered reveal: parent gets .stagger, children animate in sequence. */

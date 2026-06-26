@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AuthShell from './AuthShell.jsx'
 import { Field, Alert, Spinner, GoogleButton, OrDivider } from '../components/ui.jsx'
+import { Icon } from '../components/icons.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { usingMockBackend } from '../lib/api.js'
+import { isEmptyAuthSubmit, readAuthFields } from '../lib/authForm.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -29,16 +31,19 @@ export default function Register() {
 
   const submit = async (e) => {
     e.preventDefault()
+    const values = readAuthFields(e.currentTarget, form)
+    if (isEmptyAuthSubmit(values, 'register')) return
+
     setError('')
-    if (!form.name.trim()) return setError('Tell us your first name.')
-    if (!EMAIL_RE.test(form.email.trim())) return setError('Enter a valid email address.')
-    if (form.password.length < 6) return setError('Password must be at least 6 characters.')
-    if (form.password !== form.confirm) return setError('Passwords do not match.')
+    if (!values.name) return setError('Tell us your first name.')
+    if (!EMAIL_RE.test(values.email)) return setError('Enter a valid email address.')
+    if (values.password.length < 6) return setError('Password must be at least 6 characters.')
+    if (values.password !== values.confirm) return setError('Passwords do not match.')
     setBusy(true)
     try {
-      const res = await register({ name: form.name, email: form.email, password: form.password })
+      const res = await register({ name: values.name, email: values.email, password: values.password })
       if (res?.needsEmailConfirm) {
-        setSentTo(res.email || form.email.trim().toLowerCase())
+        setSentTo(res.email || values.email)
         setBusy(false)
         return
       }
@@ -47,6 +52,11 @@ export default function Register() {
       setError(err.message)
       setBusy(false)
     }
+  }
+
+  const updateField = (key) => (e) => {
+    setError('')
+    setForm({ ...form, [key]: e.target.value })
   }
 
   const resend = async () => {
@@ -98,14 +108,26 @@ export default function Register() {
   return (
     <AuthShell
       title="Create account"
-      subtitle="Name and email — M-Pesa comes next."
       footer={
-        <span>
-          Have an account?{' '}
-          <Link to="/login" className="font-semibold text-brand-600">
-            Log in
-          </Link>
-        </span>
+        <div className="space-y-3">
+          <span>
+            Have an account?{' '}
+            <Link to="/login" className="font-semibold text-brand-600">
+              Log in
+            </Link>
+          </span>
+          <p className="text-[10px] leading-snug text-ink-muted">
+            By signing up you agree to our{' '}
+            <Link to="/terms" className="font-semibold text-brand-600">
+              Terms
+            </Link>{' '}
+            &{' '}
+            <Link to="/privacy" className="font-semibold text-brand-600">
+              Privacy
+            </Link>
+            .
+          </p>
+        </div>
       }
     >
       {!usingMockBackend && (
@@ -124,56 +146,62 @@ export default function Register() {
         <Field label="First name" icon="user" dense>
           <input
             className="field"
+            name="name"
             placeholder="Jane"
             value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            onChange={updateField('name')}
             autoComplete="given-name"
+            required
           />
         </Field>
         <Field label="Email" icon="mail" dense>
           <input
             className="field"
             type="email"
+            name="email"
             placeholder="jane@example.com"
             value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            onChange={updateField('email')}
             autoComplete="email"
+            required
           />
         </Field>
         <Field label="Password" icon="lock" dense>
           <input
             className="field"
             type="password"
+            name="password"
             placeholder="Min. 6 characters"
             value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            onChange={updateField('password')}
             autoComplete="new-password"
+            required
+            minLength={6}
           />
         </Field>
         <Field label="Confirm" icon="lock" dense>
           <input
             className="field"
             type="password"
+            name="confirm"
             placeholder="Repeat password"
             value={form.confirm}
-            onChange={(e) => setForm({ ...form, confirm: e.target.value })}
+            onChange={updateField('confirm')}
             autoComplete="new-password"
+            required
+            minLength={6}
           />
         </Field>
-        <button type="submit" className="btn-primary w-full" disabled={busy}>
-          {busy ? <Spinner /> : 'Create account'}
+        <button type="submit" className="btn-primary flex w-full items-center justify-center gap-2" disabled={busy}>
+          {busy ? (
+            <Spinner />
+          ) : (
+            <>
+              <Icon name="signUp" size={24} />
+              Create account
+            </>
+          )}
         </button>
-        <p className="mt-2 text-center text-[10px] leading-snug text-ink-muted">
-          By signing up you agree to our{' '}
-          <Link to="/terms" className="font-semibold text-brand-600">
-            Terms
-          </Link>{' '}
-          &{' '}
-          <Link to="/privacy" className="font-semibold text-brand-600">
-            Privacy
-          </Link>
-          .
-        </p>
       </form>
     </AuthShell>
   )

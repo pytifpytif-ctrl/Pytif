@@ -20,16 +20,37 @@ function normalizePhone(num) {
   return digits
 }
 
+function signUpErrorMessage(error) {
+  const msg = String(error?.message || '').toLowerCase()
+  if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('duplicate')) {
+    return 'An account with this email already exists.'
+  }
+  if (msg.includes('password') && msg.includes('6')) return 'Password must be at least 6 characters.'
+  if (msg.includes('valid email') || msg.includes('invalid email')) return 'Enter a valid email address.'
+  return 'Could not create account. Try again.'
+}
+
+function authFlowErrorMessage(error, fallback) {
+  const msg = String(error?.message || '').toLowerCase()
+  if (msg.includes('rate limit') || msg.includes('too many')) {
+    return 'Too many attempts. Wait a minute and try again.'
+  }
+  return fallback
+}
+
 async function register({ name, email, password }) {
+  const cleanEmail = String(email || '').trim().toLowerCase()
+  if (!name?.trim() || !cleanEmail || !password) {
+    throw new Error('Fill in all fields to create your account.')
+  }
   // Standard sign-up: Supabase emails a confirmation link. The account has no
   // session until the email is confirmed. M-Pesa is added in Settings afterwards.
-  const cleanEmail = String(email || '').trim().toLowerCase()
   const { data, error } = await supabase.auth.signUp({
     email: cleanEmail,
     password,
     options: { data: { name: name?.trim() }, emailRedirectTo: `${window.location.origin}/app` },
   })
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(signUpErrorMessage(error))
 
   // If email confirmation is disabled on the project, a session is returned and
   // the user is logged straight in. Otherwise they must confirm via email.
@@ -43,13 +64,17 @@ async function resendConfirmation({ email }) {
     email: String(email || '').trim().toLowerCase(),
     options: { emailRedirectTo: `${window.location.origin}/app` },
   })
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(authFlowErrorMessage(error, 'Could not resend confirmation email.'))
   return true
 }
 
 async function login({ email, password }) {
+  const cleanEmail = String(email || '').trim().toLowerCase()
+  if (!cleanEmail || !password) {
+    throw new Error('Enter your email and password.')
+  }
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: String(email || '').trim().toLowerCase(),
+    email: cleanEmail,
     password,
   })
   if (error) throw new Error('Wrong email or password.')
@@ -151,7 +176,7 @@ async function signInWithGoogle() {
     provider: 'google',
     options: { redirectTo: `${window.location.origin}/app` },
   })
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(authFlowErrorMessage(error, 'Could not start Google sign-in.'))
   // Browser redirects to Google; resolution happens on return.
 }
 
@@ -202,7 +227,7 @@ async function resetPassword({ email }) {
     String(email || '').trim().toLowerCase(),
     { redirectTo: `${window.location.origin}/reset` },
   )
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(authFlowErrorMessage(error, 'Could not send reset email.'))
   return true
 }
 

@@ -1,4 +1,6 @@
-import { Logo, ThemeToggle } from '../components/ui.jsx'
+import { Link } from 'react-router-dom'
+import { Logo } from '../components/ui.jsx'
+import { Icon } from '../components/icons.jsx'
 
 export default function AuthShell({ title, subtitle, children, footer }) {
   return (
@@ -10,8 +12,14 @@ export default function AuthShell({ title, subtitle, children, footer }) {
 
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col justify-center lg:rounded-3xl lg:border lg:border-line lg:bg-surface/90 lg:p-8 lg:shadow-float lg:backdrop-blur-xl">
         <div className="flex shrink-0 items-center justify-between gap-3">
-          <Logo size={40} wordmark={false} />
-          <ThemeToggle />
+          <Logo size={60} wordmark />
+          <Link
+            to="/"
+            aria-label="Home"
+            className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-surface-soft text-ink-muted transition hover:border-brand-300 hover:text-brand-600"
+          >
+            <Icon name="home" size={20} strokeWidth={2} />
+          </Link>
         </div>
 
         <div className="mt-3 shrink-0 animate-slide-up">
