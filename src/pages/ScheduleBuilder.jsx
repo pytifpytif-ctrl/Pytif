@@ -29,7 +29,7 @@ import {
 
 // Sends must be at least this far in the future (no past / too-soon sends).
 const MIN_LEAD_MS = MIN_SEND_LEAD_MS
-import { depositBreakdownForDates, feeFor } from '../lib/fees.js'
+import { depositBreakdownForDates, feeFor, JIOKOE_DAILY_FEE, feeBandBoundaryWarning } from '../lib/fees.js'
 import { useHidePageScrollbar } from '../hooks/useHidePageScrollbar.js'
 import { formatKes, formatTime12, formatDateShort, formatPhone, maskPhone, formatLocalTime } from '../lib/format.js'
 
@@ -248,7 +248,31 @@ export default function ScheduleBuilder() {
   const editingSlot = timeEditor
     ? findSlotByKey(timeEditor.slotKey, slots, daySlots)
     : null
-  const breakdown = depositBreakdownForDates(resolved.dates, flatSlots, submitPattern)
+  const breakdown = useMemo(() => {
+    try {
+      return depositBreakdownForDates(resolved.dates, flatSlots, submitPattern)
+    } catch {
+      return {
+        activeDays: resolved.dates.length,
+        totalSends: 0,
+        baseAmount: 0,
+        mpesaFees: 0,
+        serviceFees: 0,
+        totalFees: 0,
+        total: 0,
+        slot_breakdown: [],
+      }
+    }
+  }, [resolved.dates, flatSlots, submitPattern])
+
+  const limitsError = useMemo(() => {
+    try {
+      depositBreakdownForDates(resolved.dates, flatSlots, submitPattern)
+      return ''
+    } catch (e) {
+      return e?.message || 'Invalid schedule amounts.'
+    }
+  }, [resolved.dates, flatSlots, submitPattern])
   const dailyTotal = slots.reduce((sum, s) => sum + (Number(s.amount) || 0), 0)
 
   // Earliest actual send (date + time). Used to block past / too-soon sends.
@@ -312,6 +336,7 @@ export default function ScheduleBuilder() {
       if (leadError) return leadError
     }
     if (s === 'summary' && resolved.dates.length === 0) return 'This schedule has no active days. Adjust your dates.'
+    if (s === 'summary' && limitsError) return limitsError
     if (s === 'summary' && leadError) return leadError
     return ''
   }
@@ -722,7 +747,17 @@ function SlotList({ slots, update, remove, add, openTime, canRemove }) {
               onChange={(e) => update(s.key, { label: e.target.value })}
             />
             {Number(s.amount) > 0 && (
-              <p className="mt-1.5 pl-1 text-xs text-ink-muted">Fee for this send: {formatKes(feeFor(s.amount))}</p>
+              <>
+                <p className="mt-1.5 pl-1 text-xs text-ink-muted">
+                  M-Pesa fee per send: {formatKes(feeFor(s.amount))}
+                  {feeFor(s.amount) === 0 ? ' (free)' : ''}
+                </p>
+                {feeBandBoundaryWarning(s.amount) && (
+                  <p className="mt-1 pl-1 text-xs text-amber-600 dark:text-amber-400">
+                    {feeBandBoundaryWarning(s.amount)}
+                  </p>
+                )}
+              </>
             )}
           </div>
         ))}
@@ -988,6 +1023,8 @@ function StepSummary({ name, pattern, breakdown, dailyTotal, resolved, destinati
           ? WEEKDAY_LABELS.filter((d) => activeDays.includes(d.iso)).map((d) => d.short).join(', ')
           : 'Specific dates'
 
+  const slotLines = breakdown.slot_breakdown || []
+
   return (
     <div className="animate-fade-in">
       <h1 className="text-2xl font-extrabold text-ink">Review & lock</h1>
@@ -1021,14 +1058,32 @@ function StepSummary({ name, pattern, breakdown, dailyTotal, resolved, destinati
       </div>
 
       <div className="card mt-4 p-5">
-        <Row k="Base amount" v={formatKes(breakdown.baseAmount)} />
-        <Row k={`Service fees (Ksh 5 × ${breakdown.totalSends})`} v={formatKes(breakdown.serviceFees)} />
-        <Row k="Mpesa fees" v={formatKes(breakdown.mpesaFees)} />
+        <p className="mb-3 text-sm font-semibold text-ink">What you receive</p>
+        {slotLines.length > 0 ? (
+          <div className="space-y-1.5 text-sm text-ink-soft">
+            {slotLines.map((slot, i) => (
+              <Row
+                key={`${slot.label}-${slot.amount}-${i}`}
+                k={`${slot.label} · ${formatKes(slot.amount)}`}
+                v={`× ${slot.sendCount} = ${formatKes(slot.slotTotalBase)}`}
+              />
+            ))}
+          </div>
+        ) : (
+          <Row k="Base total" v={formatKes(breakdown.baseAmount)} />
+        )}
+        <div className="my-3 border-t border-dashed border-line" />
+        <Row k="Base total" v={formatKes(breakdown.baseAmount)} />
+        <Row k="Transaction fees (M-Pesa B2C)" v={formatKes(breakdown.mpesaFees)} />
+        <Row k={`Jiokoe service fee (Ksh ${JIOKOE_DAILY_FEE}/day × ${breakdown.activeDays})`} v={formatKes(breakdown.serviceFees)} />
         <div className="my-3 border-t border-dashed border-line" />
         <div className="flex items-center justify-between">
           <span className="font-bold text-ink">Total to lock</span>
           <span className="text-xl font-extrabold text-brand-600 dark:text-brand-300">{formatKes(breakdown.total)}</span>
         </div>
+        <p className="mt-3 text-xs text-ink-muted">
+          You will be prompted to pay exactly {formatKes(breakdown.total)} via M-Pesa. This money is locked and sent back to you on schedule.
+        </p>
       </div>
 
       <div className="mt-4">

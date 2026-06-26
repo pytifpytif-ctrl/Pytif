@@ -6,7 +6,7 @@
 // This lets the entire UX run end-to-end with zero infrastructure. The exact
 // same flow is implemented for real in /supabase (SQL + Daraja edge functions).
 
-import { depositBreakdownForDates, feeFor } from './fees.js'
+import { depositBreakdownForDates, b2cFeeForSend, topUpTotalForSend } from './fees.js'
 import { localDayRange, startOfTodayKey, toLocalDayKey } from './format.js'
 import { computeActiveDates, generateTransactions, scheduledForIso } from './schedule.js'
 
@@ -323,7 +323,7 @@ async function createSchedule(payload) {
       label: s.label || '',
       send_time: s.send_time,
       amount: Number(s.amount),
-      fee: feeFor(s.amount),
+      fee: b2cFeeForSend(s.amount),
       day_key: s.day_key ?? null,
       is_active: true,
     })
@@ -357,7 +357,7 @@ async function addFunds({ scheduleId, sends }) {
   for (const raw of sends) {
     const amount = Number(raw.amount)
     if (!amount || amount <= 0) throw new Error('Enter a valid amount for each send.')
-    total += amount + feeFor(amount)
+    total += topUpTotalForSend(amount)
   }
 
   const deposit = {
@@ -402,7 +402,7 @@ async function confirmDeposit(depositId) {
         user_id: schedule.user_id,
         label: item.label || 'Top-up',
         amount,
-        fee: feeFor(amount),
+        fee: b2cFeeForSend(amount),
         mpesa_reference: null,
         status: 'PENDING',
         scheduled_for: scheduledForIso(item.date, item.send_time),

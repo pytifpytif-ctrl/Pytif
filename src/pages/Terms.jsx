@@ -133,7 +133,7 @@ export default function Terms() {
             cost
           </li>
           <li>
-            <strong>Jiokoe service fee</strong> — <strong>Ksh 5 per scheduled send</strong>, disclosed in your
+            <strong>Jiokoe service fee</strong> — <strong>Ksh 10 per active schedule day</strong>, disclosed in your
             review step before payment
           </li>
         </ul>

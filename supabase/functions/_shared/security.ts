@@ -3,7 +3,7 @@
 import { clientIp, auditLog } from './auth.ts'
 import { json } from './cors.ts'
 
-export const MAX_SEND_KES = 70_000
+export const MAX_SEND_KES = 150_000
 export const MIN_SEND_KES = 1
 export const MAX_SCHEDULE_NAME = 50
 export const MAX_LABEL_LEN = 80

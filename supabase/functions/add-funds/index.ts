@@ -12,17 +12,7 @@ import {
   normalizeMpesaPhone,
   MAX_LABEL_LEN,
 } from '../_shared/security.ts'
-
-const MPESA_BANDS: [number, number][] = [
-  [100, 0], [500, 11], [1000, 15], [1500, 27], [2500, 29],
-  [3500, 52], [5000, 69], [7500, 87], [10000, 115],
-]
-const mpesaFee = (a: number) => {
-  if (a <= 0) return 0
-  for (const [max, fee] of MPESA_BANDS) if (a <= max) return fee
-  return 115
-}
-const sendFee = (a: number) => (a > 0 ? mpesaFee(a) + 5 : 0)
+import { topUpTotalForSend, STK_MAX_DEPOSIT } from '../_shared/fees.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
@@ -93,7 +83,13 @@ Deno.serve(async (req) => {
         amount,
         label: sanitizeText(raw.label, MAX_LABEL_LEN) || 'Top-up',
       })
-      total += amount + sendFee(amount)
+      total += topUpTotalForSend(amount)
+    }
+
+    if (total > STK_MAX_DEPOSIT) {
+      return json({
+        error: `Total Ksh ${total.toLocaleString('en-KE')} exceeds the Ksh ${STK_MAX_DEPOSIT.toLocaleString('en-KE')} single M-Pesa payment limit.`,
+      }, 400, req)
     }
 
     const { data: deposit, error: depErr } = await supabase

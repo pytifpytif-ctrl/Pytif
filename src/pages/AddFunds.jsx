@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api.js'
-import { feeFor } from '../lib/fees.js'
+import { feeFor, topUpTotalForSend } from '../lib/fees.js'
 import {
   computeActiveDates,
   earliestAllowedTimeForDate,
@@ -133,7 +133,7 @@ export default function AddFunds() {
   )
 
   const total = useMemo(
-    () => sends.reduce((sum, s) => sum + Number(s.amount) + feeFor(Number(s.amount)), 0),
+    () => sends.reduce((sum, s) => sum + topUpTotalForSend(Number(s.amount)), 0),
     [sends],
   )
 
@@ -327,7 +327,7 @@ export default function AddFunds() {
                   />
                 </div>
                 {Number(amount) > 0 && (
-                  <p className="mt-0.5 text-[10px] text-ink-muted">Fee: {formatKes(feeFor(Number(amount)))}</p>
+                  <p className="mt-0.5 text-[10px] text-ink-muted">M-Pesa fee: {formatKes(feeFor(Number(amount)))}</p>
                 )}
               </label>
 

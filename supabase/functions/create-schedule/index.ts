@@ -16,17 +16,7 @@ import {
   MAX_SCHEDULE_NAME,
   MAX_LABEL_LEN,
 } from '../_shared/security.ts'
-
-const MPESA_BANDS: [number, number][] = [
-  [100, 0], [500, 11], [1000, 15], [1500, 27], [2500, 29],
-  [3500, 52], [5000, 69], [7500, 87], [10000, 115],
-]
-const mpesaFee = (a: number) => {
-  if (a <= 0) return 0
-  for (const [max, fee] of MPESA_BANDS) if (a <= max) return fee
-  return 115
-}
-const sendFee = (a: number) => (a > 0 ? mpesaFee(a) + 5 : 0)
+import { b2cFeeForSend, calculateScheduleDeposit } from '../_shared/fees.ts'
 
 function normalizeDest(num: string) {
   return normalizeMpesaPhone(num)
@@ -56,14 +46,6 @@ function activeDateList(p: any): Date[] {
     cur.setUTCDate(cur.getUTCDate() + 1)
   }
   return out
-}
-
-/** Slots that apply on a given date, honoring per-day `day_key`. */
-function slotsForDate(date: Date, slots: any[], pattern: string): any[] {
-  const hasPerDay = slots.some((s) => s.day_key != null && s.day_key !== '')
-  if (!hasPerDay) return slots
-  const key = pattern === 'CUSTOM_DATES' ? dateKey(date) : String(isoDow(date))
-  return slots.filter((s) => String(s.day_key) === key)
 }
 
 Deno.serve(async (req) => {
@@ -106,10 +88,9 @@ Deno.serve(async (req) => {
     }
 
     const dates = activeDateList(p)
-    const activeDays = dates.length
     const slots = (p.slots || []).filter((s: any) => validateSendAmount(s.amount).ok)
     if (slots.length === 0) return json({ error: 'No valid send slots' }, 400, req)
-    if (activeDays === 0) return json({ error: 'Schedule has no active days' }, 400, req)
+    if (dates.length === 0) return json({ error: 'Schedule has no active days' }, 400, req)
 
     const end = p.endDate ? new Date(p.endDate) : null
     const start = p.startDate ? new Date(p.startDate) : null
@@ -122,16 +103,17 @@ Deno.serve(async (req) => {
       if (end > maxEnd) return json({ error: 'Schedule cannot exceed 365 days.' }, 400, req)
     }
 
-    // Sum across the real per-day mapping (slots may differ by day).
-    let total = 0
-    let totalSends = 0
-    for (const date of dates) {
-      for (const s of slotsForDate(date, slots, p.pattern)) {
-        total += Number(s.amount) + sendFee(Number(s.amount))
-        totalSends += 1
-      }
+    let breakdown
+    try {
+      breakdown = calculateScheduleDeposit(p.pattern, slots, dates)
+    } catch (e: any) {
+      return json({ error: e?.message || 'Invalid schedule amounts.' }, 400, req)
     }
-    if (totalSends === 0) return json({ error: 'No sends scheduled on any active day' }, 400, req)
+
+    if (breakdown.totalSends === 0) return json({ error: 'No sends scheduled on any active day' }, 400, req)
+
+    const total = breakdown.total
+    const activeDays = breakdown.activeDays
 
     const { data: profile } = await supabase
       .from('users')
@@ -183,14 +165,13 @@ Deno.serve(async (req) => {
         label: sanitizeText(s.label, MAX_LABEL_LEN),
         send_time: s.send_time,
         amount: Number(s.amount),
-        fee: sendFee(Number(s.amount)),
+        fee: b2cFeeForSend(Number(s.amount)),
         day_key: s.day_key ?? null,
         is_active: true,
       })),
     )
     if (slotsErr) throw slotsErr
 
-    // Fire STK push (account reference = schedule id so the callback can match).
     let stk: any = null
     try {
       stk = await stkPush({
@@ -218,7 +199,15 @@ Deno.serve(async (req) => {
       scheduleId: schedule.id,
       depositId: deposit.id,
       activeDays,
-      breakdown: { total, activeDays, totalSends },
+      breakdown: {
+        total,
+        activeDays,
+        totalSends: breakdown.totalSends,
+        baseAmount: breakdown.baseAmount,
+        mpesaFees: breakdown.mpesaFees,
+        serviceFees: breakdown.serviceFees,
+        slotBreakdown: breakdown.slotBreakdown,
+      },
       stkPending: Boolean(stk?.CheckoutRequestID),
     }, 200, req)
   } catch (e: any) {
