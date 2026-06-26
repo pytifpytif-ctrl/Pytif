@@ -7,6 +7,12 @@ export const PATTERNS = {
   CUSTOM_DATES: 'CUSTOM_DATES',
 }
 
+/** Builder-only pattern: stored as EVERY_DAY with start = end on submit. */
+export const BUILDER_PATTERNS = {
+  ONCE: 'ONCE',
+  ...PATTERNS,
+}
+
 export const WEEKDAY_LABELS = [
   { iso: 1, short: 'Mon', long: 'Monday' },
   { iso: 2, short: 'Tue', long: 'Tuesday' },

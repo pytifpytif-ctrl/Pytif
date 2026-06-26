@@ -8,6 +8,7 @@ import { Avatar, Spinner } from '../components/ui.jsx'
 import { Icon } from '../components/icons.jsx'
 import { Gauge, MiniBars } from '../components/charts.jsx'
 import { formatKes, formatDateTime } from '../lib/format.js'
+import { StatusBadge } from '../components/ui.jsx'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -78,7 +79,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {!user?.mpesa_number && (
+      {!user?.needs_onboarding ? null : (
         <Link
           to="/app/profile"
           className="press mb-3 flex shrink-0 items-center gap-3 rounded-2xl border border-orange-500/30 bg-orange-500/10 p-3 lg:mb-5 lg:p-4"
@@ -216,6 +217,25 @@ export default function Dashboard() {
           </section>
         )}
 
+        {/* Active schedules — list style matching upcoming sends */}
+        {active.length > 0 && (
+          <section className="mt-3 shrink-0 lg:mt-5">
+            <div className="mb-2 flex shrink-0 items-center justify-between lg:mb-3">
+              <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted lg:text-sm">Your schedules</h2>
+              <Link to="/app/history" className="text-xs font-semibold text-orange-600 dark:text-orange-400">
+                View all
+              </Link>
+            </div>
+            <div className="card overflow-hidden px-2 py-1">
+              <ul className="divide-y divide-line">
+                {active.map((s) => (
+                  <ActiveScheduleRow key={s.id} s={s} mask={mask} />
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
         {/* Recycle nudge — desktop only */}
         {recyclable && (
           <Link
@@ -248,6 +268,35 @@ const SEND_STATUS = {
   FAILED: { label: 'Failed', cls: 'text-rose-500' },
   PENDING: { label: 'Pending', cls: 'text-ink-muted' },
   PENDING_B2C_CONFIRM: { label: 'Sending…', cls: 'text-amber-600 dark:text-amber-400' },
+}
+
+function ActiveScheduleRow({ s, mask }) {
+  return (
+    <li className="flex items-center gap-2.5 px-2 py-2.5 lg:gap-3 lg:py-3">
+      <Link to={`/app/schedule/${s.id}`} className="press flex min-w-0 flex-1 items-center gap-2.5 lg:gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-orange-500/12 text-orange-600 dark:text-orange-300 lg:h-10 lg:w-10">
+          <Icon name="wallet" size={16} className="lg:hidden" />
+          <Icon name="wallet" size={17} className="hidden lg:block" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-ink">{s.name}</p>
+          <p className="truncate text-xs text-ink-muted">
+            {s.nextSend ? `Next · ${formatDateTime(s.nextSend)}` : 'No upcoming sends'}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-sm font-bold text-ink">{mask(formatKes(s.locked_balance))}</p>
+          <StatusBadge status={s.status} />
+        </div>
+      </Link>
+      <Link
+        to={`/app/schedule/${s.id}/add-funds`}
+        className="press shrink-0 rounded-lg bg-orange-500 px-2.5 py-1.5 text-[10px] font-bold text-white hover:bg-orange-600 lg:px-3 lg:py-2 lg:text-xs"
+      >
+        Add funds
+      </Link>
+    </li>
+  )
 }
 
 function SendRow({ t, highlight, compact }) {

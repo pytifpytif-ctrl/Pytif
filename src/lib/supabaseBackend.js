@@ -3,15 +3,15 @@
 // Activated automatically when VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY are set.
 // Mirrors the mock backend's surface so the UI is backend-agnostic.
 //
-// Auth: we treat the Mpesa number as the login identifier by mapping it to a
-// synthetic email (<number>@jiokoe.user) inside Supabase Auth. The public
-// `users` row stores the real Mpesa number, name and verification flag.
+// Auth: email/password (or Google) for login. M-Pesa number is collected separately
+// and confirmed by entering it twice before any money can move.
 //
 // Heavy lifting (STK push, B2C, pre-generating transactions) lives in the
 // Postgres functions and Daraja edge functions under /supabase.
 
 import { supabase } from './supabaseClient.js'
 import { depositBreakdown, feeFor } from './fees.js'
+import { isRealPhone } from './format.js'
 
 function normalizePhone(num) {
   let digits = String(num || '').replace(/\D/g, '')
@@ -22,8 +22,7 @@ function normalizePhone(num) {
 
 async function register({ name, email, password }) {
   // Standard sign-up: Supabase emails a confirmation link. The account has no
-  // session until the email is confirmed. The Mpesa number is collected (and
-  // OTP-confirmed) afterwards during onboarding.
+  // session until the email is confirmed. M-Pesa is added in Settings afterwards.
   const cleanEmail = String(email || '').trim().toLowerCase()
   const { data, error } = await supabase.auth.signUp({
     email: cleanEmail,
@@ -57,32 +56,18 @@ async function login({ email, password }) {
   return (await currentUser()) ?? { id: data.user.id, email: data.user.email }
 }
 
-/** Send an OTP to confirm an Mpesa number during onboarding. */
-async function sendOtp({ mpesaNumber }) {
-  const { data, error } = await supabase.functions.invoke('send-otp', {
-    body: { mpesaNumber },
+/** Save M-Pesa number after the user enters it twice. */
+async function confirmMpesaNumber({ mpesaNumber, confirmMpesaNumber }) {
+  const { error } = await supabase.rpc('confirm_mpesa_number', {
+    p_phone: mpesaNumber,
+    p_confirm: confirmMpesaNumber,
   })
-  if (error) throw new Error(await readFnError(error, 'Could not send code.'))
-  if (data?.error) throw new Error(data.error)
-  return data // { ok, sent, devCode? }
-}
-
-/** Verify the OTP; on success the number is saved to the profile. */
-async function verifyOtp({ mpesaNumber, code }) {
-  const { data, error } = await supabase.functions.invoke('verify-otp', {
-    body: { mpesaNumber, code },
-  })
-  if (error) throw new Error(await readFnError(error, 'Could not verify code.'))
-  if (data?.error) throw new Error(data.error)
+  if (error) throw new Error(error.message || 'Could not save number.')
   return currentUser()
 }
 
 async function logout() {
   await supabase.auth.signOut()
-}
-
-function isRealPhone(num) {
-  return /^0\d{9}$/.test(String(num || ''))
 }
 
 async function currentUser() {
@@ -99,16 +84,19 @@ async function currentUser() {
     id: data.user.id,
     name: meta.name || meta.full_name || 'Jiokoe user',
     mpesa_number: null,
+    is_verified: false,
   }
-  // Google sign-ups have no Mpesa number yet (the trigger falls back to their
-  // email). Flag them so the app can collect it before any money can move.
+  const rawMpesa = base.mpesa_number
+  const phoneVerified = Boolean(base.is_verified && isRealPhone(rawMpesa))
   return {
     ...base,
     name: base.name || meta.name || meta.full_name || 'Jiokoe user',
     avatar_url: base.avatar_url || meta.avatar_url || meta.picture || null,
     email: data.user.email,
     provider: data.user.app_metadata?.provider || 'email',
-    needs_onboarding: !isRealPhone(base.mpesa_number),
+    mpesa_number: phoneVerified ? rawMpesa : null,
+    is_verified: phoneVerified,
+    needs_onboarding: !phoneVerified,
   }
 }
 
@@ -223,6 +211,10 @@ function formatApiError(value, fallback) {
 }
 
 async function readFnError(error, fallback) {
+  const raw = error?.message || ''
+  if (/failed to fetch|failed to load|networkerror|load resource/i.test(raw)) {
+    return 'Could not reach the server. Log in again, then retry.'
+  }
   try {
     const body = await error?.context?.json?.()
     if (body?.error) return formatApiError(body.error, fallback)
@@ -230,10 +222,14 @@ async function readFnError(error, fallback) {
   } catch {
     /* ignore */
   }
-  return formatApiError(error?.message, fallback)
+  return formatApiError(raw, fallback)
 }
 
 async function createSchedule(payload) {
+  const { data: sessionData } = await supabase.auth.getSession()
+  if (!sessionData.session) {
+    throw new Error('Your session expired. Log in again, then retry.')
+  }
   // Compute the deposit total on the client for the summary, but the
   // edge function recomputes authoritatively before triggering STK push.
   const activeSlots = payload.slots.filter((s) => Number(s.amount) > 0)
@@ -254,6 +250,27 @@ async function createSchedule(payload) {
     scheduleId: data.scheduleId,
     depositId: data.depositId,
     breakdown: data.breakdown ?? depositBreakdown(activeSlots, data.activeDays ?? 0),
+  }
+}
+
+async function addFunds({ scheduleId, sends }) {
+  const { data: sessionData } = await supabase.auth.getSession()
+  if (!sessionData.session) {
+    throw new Error('Your session expired. Log in again, then retry.')
+  }
+  const { data, error } = await supabase.functions.invoke('add-funds', {
+    body: { scheduleId, sends },
+  })
+  if (error) throw new Error(await readFnError(error, 'Could not add funds.'))
+  if (data?.error) throw new Error(formatApiError(data.error, 'Could not add funds.'))
+  if (data?.stkError) {
+    return { depositId: data.depositId, total: data.total, stkError: data.stkError }
+  }
+  return {
+    depositId: data.depositId,
+    total: data.total,
+    scheduleId: data.scheduleId,
+    sendCount: data.sendCount,
   }
 }
 
@@ -398,11 +415,11 @@ export const supabaseBackend = {
   updateProfile,
   uploadAvatar,
   onAuthChange,
-  sendOtp,
-  verifyOtp,
+  confirmMpesaNumber,
   resetPassword,
   updatePassword,
   createSchedule,
+  addFunds,
   confirmDeposit,
   listSchedules,
   getSchedule,

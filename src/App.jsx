@@ -10,6 +10,7 @@ import Landing from './pages/Landing.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import ScheduleBuilder from './pages/ScheduleBuilder.jsx'
 import ScheduleDetail from './pages/ScheduleDetail.jsx'
+import AddFunds from './pages/AddFunds.jsx'
 import History from './pages/History.jsx'
 import Settings from './pages/Settings.jsx'
 import Notifications from './pages/Notifications.jsx'
@@ -104,6 +105,14 @@ export default function App() {
         element={
           <RequireAuth>
             <ScheduleDetail />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/app/schedule/:id/add-funds"
+        element={
+          <RequireAuth>
+            <AddFunds />
           </RequireAuth>
         }
       />

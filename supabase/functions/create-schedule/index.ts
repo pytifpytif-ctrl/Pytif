@@ -69,6 +69,20 @@ Deno.serve(async (req) => {
     const userId = userData.user.id
 
     const p = await req.json()
+    const nameNorm = String(p.name || '').trim()
+    if (!nameNorm) return json({ error: 'Give your schedule a name.' }, 400)
+
+    const { data: existingSchedules } = await supabase
+      .from('schedules')
+      .select('name')
+      .eq('user_id', userId)
+    const nameTaken = (existingSchedules || []).some(
+      (s) => String(s.name || '').trim().toLowerCase() === nameNorm.toLowerCase(),
+    )
+    if (nameTaken) {
+      return json({ error: 'You already have a schedule with this name. Pick another.' }, 400)
+    }
+
     const dates = activeDateList(p)
     const activeDays = dates.length
     const slots = (p.slots || []).filter((s: any) => Number(s.amount) > 0)
@@ -94,8 +108,11 @@ Deno.serve(async (req) => {
     if (!profile?.is_verified) {
       return json({ error: 'Verify your M-Pesa number before creating a schedule.' }, 403)
     }
-    const destination = profile.mpesa_number
-    if (p.destination && normalizeDest(p.destination) !== normalizeDest(destination)) {
+    const destination = normalizeDest(profile.mpesa_number)
+    if (!/^0\d{9}$/.test(destination)) {
+      return json({ error: 'Verify your M-Pesa number before creating a schedule.' }, 403)
+    }
+    if (p.destination && normalizeDest(p.destination) !== destination) {
       return json({ error: 'Payouts can only go to your verified M-Pesa number.' }, 403)
     }
     const startKey = p.startDate ? new Date(p.startDate).toISOString().slice(0, 10) : null

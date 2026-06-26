@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { api } from '../lib/api.js'
@@ -8,6 +8,7 @@ import TimeWheel from '../components/TimeWheel.jsx'
 import MonthCalendar from '../components/MonthCalendar.jsx'
 import {
   PATTERNS,
+  BUILDER_PATTERNS,
   WEEKDAY_LABELS,
   DURATION_PRESETS,
   computeActiveDates,
@@ -42,6 +43,16 @@ function findSlotByKey(key, slots, daySlots) {
   return null
 }
 
+const STEP_LABELS = {
+  name: 'Name',
+  pattern: 'Pattern',
+  days: 'Days',
+  dates: 'Dates',
+  slots: 'Sends',
+  duration: 'Dates',
+  summary: 'Review',
+}
+
 export default function ScheduleBuilder() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -61,13 +72,22 @@ export default function ScheduleBuilder() {
     startDateKey: toDateKey(startOfToday()),
     endDateKey: null,
   })
-  const [destination] = useState(user?.mpesa_number || '')
+  const destination = user?.is_verified && user?.mpesa_number ? user.mpesa_number : ''
 
   const [stepIndex, setStepIndex] = useState(0)
   const [timeEditor, setTimeEditor] = useState(null)
   const [error, setError] = useState('')
   const [phase, setPhase] = useState('build') // build | stk | success
   const [result, setResult] = useState(null)
+  const [existingNames, setExistingNames] = useState([])
+
+  useEffect(() => {
+    if (isRecycle) return
+    ;(async () => {
+      const list = await api.listSchedules()
+      setExistingNames(list.map((s) => String(s.name || '').trim().toLowerCase()).filter(Boolean))
+    })()
+  }, [isRecycle])
 
   useEffect(() => {
     if (!isRecycle) return
@@ -91,17 +111,35 @@ export default function ScheduleBuilder() {
     })()
   }, [id, isRecycle])
 
-  // Dynamic step list based on pattern.
+  // Dynamic step list — one screen per decision, onboarding-style.
   const steps = useMemo(() => {
-    if (pattern === PATTERNS.CUSTOM_DATES) return ['pattern', 'dates', 'slots', 'destination', 'summary']
-    if (pattern === PATTERNS.SPECIFIC_DAYS) return ['pattern', 'days', 'duration', 'slots', 'destination', 'summary']
-    return ['pattern', 'duration', 'slots', 'destination', 'summary']
+    const head = ['name', 'pattern']
+    if (pattern === BUILDER_PATTERNS.ONCE) return [...head, 'slots', 'duration', 'summary']
+    if (pattern === PATTERNS.CUSTOM_DATES) return [...head, 'dates', 'slots', 'summary']
+    if (pattern === PATTERNS.SPECIFIC_DAYS) return [...head, 'days', 'slots', 'duration', 'summary']
+    return [...head, 'slots', 'duration', 'summary']
+  }, [pattern])
+
+  const submitPattern = pattern === BUILDER_PATTERNS.ONCE ? PATTERNS.EVERY_DAY : pattern
+  const prevPattern = useRef(pattern)
+
+  useEffect(() => {
+    if (prevPattern.current !== pattern) {
+      setStepIndex((i) => (i > 1 ? 1 : i))
+      prevPattern.current = pattern
+    }
   }, [pattern])
 
   const step = steps[Math.min(stepIndex, steps.length - 1)]
 
   // Resolve dates + breakdown.
   const resolved = useMemo(() => {
+    if (pattern === BUILDER_PATTERNS.ONCE) {
+      const startKey = duration.startDateKey || toDateKey(startOfToday())
+      const start = fromDateKey(startKey)
+      return { startDate: start, endDate: start, dates: [start] }
+    }
+
     if (pattern === PATTERNS.CUSTOM_DATES) {
       const dates = computeActiveDates({ pattern, activeDates })
       return { startDate: dates[0] || null, endDate: dates[dates.length - 1] || null, dates }
@@ -124,7 +162,7 @@ export default function ScheduleBuilder() {
     return { startDate: start, endDate: end, dates }
   }, [pattern, activeDays, activeDates, duration])
 
-  const isPerDay = pattern !== PATTERNS.EVERY_DAY
+  const isPerDay = pattern === PATTERNS.SPECIFIC_DAYS || pattern === PATTERNS.CUSTOM_DATES
 
   // The ordered list of editable "days" for per-day patterns.
   const dayKeys = useMemo(() => {
@@ -159,12 +197,12 @@ export default function ScheduleBuilder() {
     return out
   }, [isPerDay, slots, daySlots, dayKeys])
 
-  const breakdown = depositBreakdownForDates(resolved.dates, flatSlots, pattern)
+  const breakdown = depositBreakdownForDates(resolved.dates, flatSlots, submitPattern)
   const dailyTotal = slots.reduce((sum, s) => sum + (Number(s.amount) || 0), 0)
 
   // Earliest actual send (date + time). Used to block past / too-soon sends.
   const earliestSend = useMemo(() => {
-    const txns = generateTransactions(resolved.dates, flatSlots, pattern)
+    const txns = generateTransactions(resolved.dates, flatSlots, submitPattern)
     return txns[0] ? new Date(txns[0].scheduled_for) : null
   }, [resolved.dates, flatSlots, pattern])
 
@@ -190,7 +228,13 @@ export default function ScheduleBuilder() {
   }
 
   function validateStep(s) {
-    if (s === 'pattern' && !name.trim()) return 'Give your schedule a name.'
+    if (s === 'name') {
+      const trimmed = name.trim()
+      if (!trimmed) return 'Give your schedule a name.'
+      if (!isRecycle && existingNames.includes(trimmed.toLowerCase())) {
+        return 'You already have a schedule with this name. Pick another.'
+      }
+    }
     if (s === 'days' && activeDays.length === 0) return 'Pick at least one day.'
     if (s === 'dates' && activeDates.length === 0) return 'Select at least one date.'
     if (s === 'duration') {
@@ -230,8 +274,8 @@ export default function ScheduleBuilder() {
     setPhase('stk')
     try {
       const payload = {
-        name,
-        pattern,
+        name: name.trim(),
+        pattern: submitPattern,
         activeDays,
         activeDates,
         startDate: resolved.startDate ? resolved.startDate.toISOString() : null,
@@ -276,7 +320,7 @@ export default function ScheduleBuilder() {
     )
   }
 
-  if (!destination) return <NeedsNumber navigate={navigate} />
+  if (user?.needs_onboarding || !destination) return <NeedsNumber navigate={navigate} />
 
   if (phase === 'stk') return <StkWaiting total={breakdown.total} number={destination} />
   if (phase === 'success') return <SuccessScreen result={result} navigate={navigate} />
@@ -302,7 +346,7 @@ export default function ScheduleBuilder() {
             </div>
           </div>
           <span className="text-xs font-semibold text-ink-muted">
-            {stepIndex + 1}/{steps.length}
+            {STEP_LABELS[step] || 'Step'} · {stepIndex + 1}/{steps.length}
           </span>
         </div>
       </div>
@@ -314,13 +358,17 @@ export default function ScheduleBuilder() {
           </div>
         )}
 
-        {step === 'pattern' && (
-          <StepPattern name={name} setName={setName} pattern={pattern} setPattern={setPattern} isRecycle={isRecycle} />
-        )}
+        {step === 'name' && <StepName name={name} setName={setName} isRecycle={isRecycle} />}
+        {step === 'pattern' && <StepPattern pattern={pattern} setPattern={setPattern} isRecycle={isRecycle} />}
         {step === 'days' && <StepDays activeDays={activeDays} setActiveDays={setActiveDays} />}
         {step === 'dates' && <StepDates activeDates={activeDates} setActiveDates={setActiveDates} />}
         {step === 'slots' && !isPerDay && (
-          <StepSlots slots={slots} setSlots={setSlots} openTime={(key) => setTimeEditor(key)} />
+          <StepSlots
+            slots={slots}
+            setSlots={setSlots}
+            openTime={(key) => setTimeEditor(key)}
+            once={pattern === BUILDER_PATTERNS.ONCE}
+          />
         )}
         {step === 'slots' && isPerDay && (
           <StepDaySlots
@@ -340,7 +388,6 @@ export default function ScheduleBuilder() {
             activeWeekdays={activeDays}
           />
         )}
-        {step === 'destination' && <StepDestination destination={destination} />}
         {step === 'summary' && (
           <StepSummary
             name={name}
@@ -357,7 +404,7 @@ export default function ScheduleBuilder() {
 
       {/* Sticky footer CTA */}
       <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-line bg-surface/95 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur lg:max-w-2xl">
-        {(step === 'duration' || step === 'slots') && resolved.dates.length > 0 && (
+        {(step === 'duration' || step === 'slots' || step === 'summary') && resolved.dates.length > 0 && (
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="text-ink-muted">Est. total to lock</span>
             <span className="text-lg font-extrabold text-ink">{formatKes(breakdown.total)}</span>
@@ -406,31 +453,51 @@ export default function ScheduleBuilder() {
 
 /* ----------------- Steps ----------------- */
 
-function StepPattern({ name, setName, pattern, setPattern, isRecycle }) {
+function StepName({ name, setName, isRecycle }) {
+  return (
+    <div className="animate-fade-in">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-orange-600 dark:text-orange-300">
+        Step 1
+      </span>
+      <h1 className="mt-3 text-2xl font-extrabold text-ink">Name your schedule</h1>
+      <p className="mb-5 mt-1 text-ink-muted">
+        Pick something you&apos;ll recognize — like &ldquo;Daily transport&rdquo; or &ldquo;Rent March&rdquo;. Each name must be unique.
+      </p>
+      <input
+        className="field text-lg font-semibold"
+        placeholder="e.g. Daily transport"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        autoFocus
+      />
+      {isRecycle && (
+        <p className="mt-4 text-xs text-ink-muted">Recycling a completed schedule — you can rename it before continuing.</p>
+      )}
+    </div>
+  )
+}
+
+function StepPattern({ pattern, setPattern, isRecycle }) {
   const options = [
+    { id: BUILDER_PATTERNS.ONCE, title: 'Once', desc: 'One date — a single commitment', icon: 'bolt' },
     { id: PATTERNS.EVERY_DAY, title: 'Every day', desc: 'Same sends, every single day', icon: 'repeat' },
     { id: PATTERNS.SPECIFIC_DAYS, title: 'Specific days of the week', desc: 'Choose which weekdays', icon: 'calendarDays' },
-    { id: PATTERNS.CUSTOM_DATES, title: 'Custom dates', desc: 'Pick exact calendar dates', icon: 'calendarCheck' },
+    { id: PATTERNS.CUSTOM_DATES, title: 'Specific dates', desc: 'Pick exact calendar dates', icon: 'calendarCheck' },
   ]
   return (
     <div className="animate-fade-in">
-      <h1 className="text-2xl font-extrabold text-ink">Name your schedule</h1>
-      <p className="mb-4 mt-1 text-ink-muted">A label only you see — like “Daily transport”.</p>
-      <input
-        className="field mb-7"
-        placeholder="e.g. Daily transport & meals"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-
-      <h2 className="text-2xl font-extrabold text-ink">Choose your pattern</h2>
-      <p className="mb-4 mt-1 text-ink-muted">How often should sends fire?</p>
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-orange-600 dark:text-orange-300">
+        Step 2
+      </span>
+      <h1 className="mt-3 text-2xl font-extrabold text-ink">How often?</h1>
+      <p className="mb-5 mt-1 text-ink-muted">Choose when money should return to your M-Pesa.</p>
       <div className="space-y-3">
         {options.map((o) => {
           const active = pattern === o.id
           return (
             <button
               key={o.id}
+              type="button"
               onClick={() => setPattern(o.id)}
               className={`press flex w-full items-center gap-4 rounded-3xl border-2 p-4 text-left transition ${
                 active ? 'border-orange-500 bg-orange-500/10' : 'border-transparent bg-surface shadow-card'
@@ -459,9 +526,7 @@ function StepPattern({ name, setName, pattern, setPattern, isRecycle }) {
         })}
       </div>
       {isRecycle && (
-        <p className="mt-5 text-xs text-ink-muted">
-          Recycling a completed schedule. Destination stays your own number (Phase 1).
-        </p>
+        <p className="mt-5 text-xs text-ink-muted">Recycling keeps your payout number — only you receive the sends.</p>
       )}
     </div>
   )
@@ -595,16 +660,36 @@ function SlotList({ slots, update, remove, add, openTime, canRemove }) {
   )
 }
 
-function StepSlots({ slots, setSlots, openTime }) {
+function StepSlots({ slots, setSlots, openTime, once = false }) {
   const update = (key, patch) => setSlots((prev) => prev.map((s) => (s.key === key ? { ...s, ...patch } : s)))
   const remove = (key) => setSlots((prev) => prev.filter((s) => s.key !== key))
   const add = () => setSlots((prev) => appendSlot(prev))
 
+  const applyFirstToAll = () => {
+    const first = slots[0]
+    if (!first) return
+    setSlots((prev) =>
+      prev.map((s, i) =>
+        i === 0 ? s : { ...s, send_time: first.send_time, amount: first.amount, label: first.label },
+      ),
+    )
+  }
+
   return (
     <div className="animate-fade-in">
-      <h1 className="text-2xl font-extrabold text-ink">Build your day</h1>
-      <p className="mb-5 mt-1 text-ink-muted">Each row is one send. Add as many as you need.</p>
+      <h1 className="text-2xl font-extrabold text-ink">{once ? 'Set your send' : 'Set times & amounts'}</h1>
+      <p className="mb-5 mt-1 text-ink-muted">
+        {once
+          ? 'Pick when and how much returns to you on that day.'
+          : 'Each row is one send. These repeat on every active day unless you chose specific days or dates next.'}
+      </p>
       <SlotList slots={slots} update={update} remove={remove} add={add} openTime={openTime} canRemove={slots.length > 1} />
+      {slots.length > 1 && (
+        <button type="button" onClick={applyFirstToAll} className="btn-ghost mt-3 w-full border-dashed">
+          <Icon name="copy" size={16} />
+          Apply first row to all times
+        </button>
+      )}
     </div>
   )
 }
@@ -634,9 +719,9 @@ function StepDaySlots({ dayKeys, daySlots, setDaySlots, openTime }) {
 
   return (
     <div className="animate-fade-in">
-      <h1 className="text-2xl font-extrabold text-ink">Build each day</h1>
+      <h1 className="text-2xl font-extrabold text-ink">Set each day</h1>
       <p className="mb-5 mt-1 text-ink-muted">
-        Tap a day to set its own times and amounts. Use “Copy to all days” to reuse one day everywhere.
+        Tap a day to edit its sends. Use &ldquo;Copy to all days&rdquo; when one setup works everywhere.
       </p>
 
       <div className="space-y-3">
@@ -699,9 +784,14 @@ function StepDaySlots({ dayKeys, daySlots, setDaySlots, openTime }) {
 function StepDuration({ duration, setDuration, resolved, breakdown, pattern, activeWeekdays }) {
   const startKey = duration.startDateKey || toDateKey(startOfToday())
   const startDate = fromDateKey(startKey)
+  const isOnce = pattern === BUILDER_PATTERNS.ONCE
 
   const setStart = (keys) => {
     const nextStart = keys[0] || startKey
+    if (isOnce) {
+      setDuration({ type: 'preset', days: 1, startDateKey: nextStart, endDateKey: null })
+      return
+    }
     setDuration((prev) => ({ ...prev, startDateKey: nextStart }))
   }
 
@@ -721,11 +811,30 @@ function StepDuration({ duration, setDuration, resolved, breakdown, pattern, act
           .join(', ')
       : ''
 
+  if (isOnce) {
+    return (
+      <div className="animate-fade-in">
+        <h1 className="text-2xl font-extrabold text-ink">Pick your date</h1>
+        <p className="mb-5 mt-1 text-ink-muted">When should this one-time send happen?</p>
+        <MonthCalendar multi={false} minDate={startOfToday()} selected={[startKey]} onChange={setStart} />
+        <div className="mt-6 space-y-2 rounded-2xl bg-brand-500/10 p-4">
+          <p className="text-center text-sm text-brand-700 dark:text-brand-200">
+            <span className="font-extrabold">{formatDateShort(resolved.startDate)}</span>
+            {' · '}
+            <span className="font-extrabold">{breakdown.totalSends} send{breakdown.totalSends === 1 ? '' : 's'}</span>
+            {' · '}
+            <span className="font-extrabold">{formatKes(breakdown.total)}</span> to lock
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="animate-fade-in">
-      <h1 className="text-2xl font-extrabold text-ink">Set your date range</h1>
+      <h1 className="text-2xl font-extrabold text-ink">Starting date & length</h1>
       <p className="mb-5 mt-1 text-ink-muted">
-        Choose when the schedule starts and ends. We&apos;ll calculate exactly how much to lock.
+        Choose when the schedule starts and how long it runs. We&apos;ll calculate exactly how much to lock.
       </p>
 
       <p className="mb-2 text-sm font-semibold text-ink">Start date</p>
@@ -870,16 +979,18 @@ function StepDestination({ destination }) {
 
 function StepSummary({ name, pattern, breakdown, dailyTotal, resolved, destination, activeDays, isPerDay }) {
   const patternLabel =
-    pattern === PATTERNS.EVERY_DAY
-      ? 'Every day'
-      : pattern === PATTERNS.SPECIFIC_DAYS
-        ? WEEKDAY_LABELS.filter((d) => activeDays.includes(d.iso)).map((d) => d.short).join(', ')
-        : 'Custom dates'
+    pattern === BUILDER_PATTERNS.ONCE
+      ? 'Once'
+      : pattern === PATTERNS.EVERY_DAY
+        ? 'Every day'
+        : pattern === PATTERNS.SPECIFIC_DAYS
+          ? WEEKDAY_LABELS.filter((d) => activeDays.includes(d.iso)).map((d) => d.short).join(', ')
+          : 'Specific dates'
 
   return (
     <div className="animate-fade-in">
-      <h1 className="text-2xl font-extrabold text-ink">Your commitment</h1>
-      <p className="mb-5 mt-1 text-ink-muted">No surprises. This is exactly what happens.</p>
+      <h1 className="text-2xl font-extrabold text-ink">Review & lock</h1>
+      <p className="mb-5 mt-1 text-ink-muted">Check everything, then approve the M-Pesa prompt to lock your money.</p>
 
       <div className="card p-5">
         <p className="text-lg font-bold text-ink">{name}</p>
@@ -887,13 +998,22 @@ function StepSummary({ name, pattern, breakdown, dailyTotal, resolved, destinati
           <Row k="Pattern" v={patternLabel} />
           {isPerDay ? (
             <Row k="Sends" v="Varies by day" />
+          ) : pattern === BUILDER_PATTERNS.ONCE ? (
+            <Row k="Sends" v={`${breakdown.totalSends} · ${formatKes(breakdown.baseAmount)}`} />
           ) : (
             <Row k="Sends per day" v={`${breakdown.sendsPerDay} · ${formatKes(dailyTotal)}/day`} />
           )}
           <Row k="Active days" v={`${breakdown.activeDays}`} />
           <Row k="Total sends" v={`${breakdown.totalSends}`} />
           {resolved.startDate && (
-            <Row k="Runs" v={`${formatDateShort(resolved.startDate)} → ${formatDateShort(resolved.endDate)}`} />
+            <Row
+              k={pattern === BUILDER_PATTERNS.ONCE ? 'Date' : 'Runs'}
+              v={
+                pattern === BUILDER_PATTERNS.ONCE
+                  ? formatDateShort(resolved.startDate)
+                  : `${formatDateShort(resolved.startDate)} → ${formatDateShort(resolved.endDate)}`
+              }
+            />
           )}
           <Row k="Destination" v={formatPhone(destination)} />
         </div>

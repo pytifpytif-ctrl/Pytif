@@ -45,6 +45,13 @@ export function formatDateTime(value) {
   )}`
 }
 
+/** Kenyan Safaricom number: 0712345678 */
+export function isRealPhone(num) {
+  const digits = String(num || '').replace(/\D/g, '')
+  if (digits.startsWith('254') && digits.length === 12) return /^2547\d{8}$/.test(digits)
+  return /^0\d{9}$/.test(digits)
+}
+
 /** Kenyan number formatting helper: 0712345678 -> 0712 345 678 */
 export function formatPhone(num) {
   const digits = String(num || '').replace(/\D/g, '')

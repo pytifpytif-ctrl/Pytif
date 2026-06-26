@@ -55,17 +55,26 @@ Deno.serve(async (req) => {
         .eq('id', deposit.id)
         .eq('status', 'PENDING')
 
-      await supabase
-        .from('schedules')
-        .update({ locked_balance: deposit.amount, total_deposited: deposit.amount })
-        .eq('id', deposit.schedule_id)
+      if (deposit.deposit_type === 'topup') {
+        await supabase.rpc('apply_schedule_topup', { p_deposit_id: deposit.id })
+        await auditLog(supabase, 'stk_topup_confirmed', {
+          depositId: deposit.id,
+          amount: paidAmount,
+          receipt,
+        }, deposit.user_id, req)
+      } else {
+        await supabase
+          .from('schedules')
+          .update({ locked_balance: deposit.amount, total_deposited: deposit.amount })
+          .eq('id', deposit.schedule_id)
 
-      await supabase.rpc('activate_schedule', { p_schedule_id: deposit.schedule_id })
-      await auditLog(supabase, 'stk_callback_confirmed', {
-        depositId: deposit.id,
-        amount: paidAmount,
-        receipt,
-      }, deposit.user_id, req)
+        await supabase.rpc('activate_schedule', { p_schedule_id: deposit.schedule_id })
+        await auditLog(supabase, 'stk_callback_confirmed', {
+          depositId: deposit.id,
+          amount: paidAmount,
+          receipt,
+        }, deposit.user_id, req)
+      }
     } else {
       await supabase.from('deposits').update({ status: 'FAILED' }).eq('id', deposit.id).eq('status', 'PENDING')
       await auditLog(supabase, 'stk_callback_failed', {

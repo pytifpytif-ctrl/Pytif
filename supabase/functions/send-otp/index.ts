@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
       {
         id: user.id,
         name: user.user_metadata?.name || user.user_metadata?.full_name || 'Jiokoe user',
-        mpesa_number: user.email || user.id,
+        mpesa_number: `pending:${user.id}`,
         is_verified: false,
       },
       { onConflict: 'id', ignoreDuplicates: true },

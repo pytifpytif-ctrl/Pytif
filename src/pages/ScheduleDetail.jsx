@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api.js'
 import { useScheduler } from '../hooks/useScheduler.js'
 import { ScreenHeader, Spinner, StatusBadge, Alert } from '../components/ui.jsx'
@@ -76,6 +76,16 @@ export default function ScheduleDetail() {
           </div>
         </div>
       </section>
+
+      {schedule.status === 'ACTIVE' && (
+        <Link
+          to={`/app/schedule/${schedule.id}/add-funds`}
+          className="btn-primary mt-5 flex w-full items-center justify-center gap-2"
+        >
+          <Icon name="plus" size={18} />
+          Add funds
+        </Link>
+      )}
 
       {schedule.status === 'COMPLETED' && (
         <button className="btn-primary mt-5 w-full" onClick={() => navigate(`/app/recycle/${schedule.id}`)}>

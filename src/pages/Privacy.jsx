@@ -19,7 +19,7 @@ export default function Privacy() {
             sign-up.
           </li>
           <li>
-            <strong>Mpesa number</strong> — the phone number you verify via a one-time code, used to
+            <strong>M-Pesa number</strong> — the Safaricom number you enter twice to confirm, used to
             send your scheduled payouts.
           </li>
           <li>
@@ -48,8 +48,8 @@ export default function Privacy() {
         <p>
           We share data only as needed to operate the Service: with Safaricom (Daraja/Mpesa) to
           process payments, with our authentication and database provider (Supabase) to store your
-          account securely, and with our SMS/email providers to deliver verification codes and
-          confirmations. We do not sell your personal information.
+          account securely, and with our email provider to deliver account confirmation messages.
+          We do not sell your personal information.
         </p>
       </Section>
 

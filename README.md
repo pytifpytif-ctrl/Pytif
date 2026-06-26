@@ -28,7 +28,7 @@ This repo is **Phase 1**: time-of-day scheduled sends **to self only**.
 - **Schedule Detail** with progress, today's sends, daily template, full send
   history, and **Recycle** for completed schedules.
 - **Transaction History** with status / schedule / date-range filters.
-- **Auth**: register (with OTP step), login, forgot-password — keyed on the
+- **Auth**: register (email confirm), login, M-Pesa double-entry in Settings — keyed on the
   Mpesa number.
 - **Fee engine** matching the published Mpesa B2C bands + flat Ksh 5 Jiokoe fee.
 - **Full Supabase backend**: SQL schema + RLS, activation & scheduler functions,
@@ -69,7 +69,7 @@ To reset the demo data: clear the site's localStorage.
 | Scheduler | Supabase `pg_cron` | Every-minute due-send job |
 | Collect | Daraja STK Push (C2B) | Prompts the user to pay |
 | Disburse | Daraja B2C | Sends from company Mpesa to user |
-| SMS | Africa's Talking | OTP codes + failed-send alerts |
+| SMS | — | Not used (M-Pesa confirmed by double entry) |
 | Hosting | Vercel (frontend) | Free tier is fine for MVP |
 
 ---
@@ -138,8 +138,7 @@ supabase secrets set \
   MPESA_B2C_INITIATOR_NAME=... MPESA_B2C_SECURITY_CREDENTIAL=... \
   MPESA_STK_CALLBACK_URL=https://<ref>.functions.supabase.co/stk-callback \
   MPESA_B2C_RESULT_URL=https://<ref>.functions.supabase.co/b2c-result \
-  MPESA_B2C_QUEUE_TIMEOUT_URL=https://<ref>.functions.supabase.co/b2c-timeout \
-  AT_USERNAME=sandbox AT_API_KEY=...
+  MPESA_B2C_QUEUE_TIMEOUT_URL=https://<ref>.functions.supabase.co/b2c-timeout
 ```
 
 ### 3. Frontend

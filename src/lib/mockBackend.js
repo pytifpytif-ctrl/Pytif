@@ -138,37 +138,21 @@ async function updateProfile({ name, mpesaNumber }) {
   return publicUser(user)
 }
 
-async function sendOtp({ mpesaNumber }) {
+async function confirmMpesaNumber({ mpesaNumber, confirmMpesaNumber }) {
   await delay()
   const db = loadDb()
   const session = getSession()
   if (!session) throw new Error('Not signed in')
   const phone = normalizePhone(mpesaNumber)
+  const confirm = normalizePhone(confirmMpesaNumber)
   if (!/^0\d{9}$/.test(phone)) throw new Error('Enter a valid Safaricom number, e.g. 0712345678')
+  if (phone !== confirm) throw new Error('Numbers do not match. Check both fields and try again.')
   if (db.users.some((u) => u.id !== session.userId && u.mpesa_number === phone && u.is_verified)) {
-    throw new Error('That Mpesa number is already linked to another account.')
+    throw new Error('That M-Pesa number is already linked to another account.')
   }
-  const code = String(Math.floor(100000 + Math.random() * 900000))
   const user = db.users.find((u) => u.id === session.userId)
-  user.pending_otp = { code, phone, expires: Date.now() + 5 * 60 * 1000 }
-  saveDb(db)
-  return { ok: true, sent: false, devCode: code }
-}
-
-async function verifyOtp({ mpesaNumber, code }) {
-  await delay()
-  const db = loadDb()
-  const session = getSession()
-  if (!session) throw new Error('Not signed in')
-  const phone = normalizePhone(mpesaNumber)
-  const user = db.users.find((u) => u.id === session.userId)
-  const pending = user?.pending_otp
-  if (!pending || pending.phone !== phone) throw new Error('No active code. Request a new one.')
-  if (pending.expires < Date.now()) throw new Error('Code expired. Request a new one.')
-  if (String(code).trim() !== pending.code) throw new Error('Incorrect code. Try again.')
   user.mpesa_number = phone
   user.is_verified = true
-  delete user.pending_otp
   saveDb(db)
   return publicUser(user)
 }
@@ -202,10 +186,10 @@ function publicUser(u) {
     id: u.id,
     name: u.name,
     email: u.email,
-    mpesa_number: u.mpesa_number,
+    mpesa_number: u.is_verified && /^0\d{9}$/.test(String(u.mpesa_number || '')) ? u.mpesa_number : null,
     is_verified: u.is_verified,
     avatar_url: u.avatar_url || null,
-    needs_onboarding: !/^0\d{9}$/.test(String(u.mpesa_number || '')),
+    needs_onboarding: !u.is_verified || !/^0\d{9}$/.test(String(u.mpesa_number || '')),
   }
 }
 
@@ -241,6 +225,15 @@ async function createSchedule(payload) {
   const db = loadDb()
   const session = getSession()
   if (!session) throw new Error('Not signed in')
+
+  const nameNorm = String(payload.name || '').trim()
+  if (!nameNorm) throw new Error('Give your schedule a name.')
+  const nameTaken = db.schedules.some(
+    (s) =>
+      s.user_id === session.userId &&
+      String(s.name || '').trim().toLowerCase() === nameNorm.toLowerCase(),
+  )
+  if (nameTaken) throw new Error('You already have a schedule with this name. Pick another.')
 
   const activeDates = computeActiveDates({
     pattern: payload.pattern,
@@ -301,6 +294,43 @@ async function createSchedule(payload) {
   return { scheduleId, depositId: deposit.id, breakdown }
 }
 
+async function addFunds({ scheduleId, sends }) {
+  const db = loadDb()
+  const session = getSession()
+  if (!session) throw new Error('Log in to add funds.')
+  const schedule = db.schedules.find((s) => s.id === scheduleId && s.user_id === session.userId)
+  if (!schedule) throw new Error('Schedule not found.')
+  if (schedule.status !== 'ACTIVE') throw new Error('You can only add funds to an active schedule.')
+  if (!Array.isArray(sends) || sends.length === 0) throw new Error('Add at least one send.')
+
+  let total = 0
+  for (const raw of sends) {
+    const amount = Number(raw.amount)
+    if (!amount || amount <= 0) throw new Error('Enter a valid amount for each send.')
+    total += amount + feeFor(amount)
+  }
+
+  const deposit = {
+    id: uid(),
+    user_id: session.userId,
+    schedule_id: scheduleId,
+    amount: total,
+    mpesa_reference: null,
+    status: 'PENDING',
+    deposit_type: 'topup',
+    topup_sends: sends.map((s) => ({
+      date: s.date,
+      send_time: s.send_time,
+      amount: Number(s.amount),
+      label: s.label || 'Top-up',
+    })),
+    created_at: new Date().toISOString(),
+  }
+  db.deposits.push(deposit)
+  saveDb(db)
+  return { depositId: deposit.id, total, scheduleId, sendCount: sends.length }
+}
+
 /** Simulates the C2B/STK callback confirming payment, then activates + pre-generates txns. */
 async function confirmDeposit(depositId) {
   await delay(1200)
@@ -311,6 +341,32 @@ async function confirmDeposit(depositId) {
   deposit.mpesa_reference = 'WSL' + Math.random().toString(36).slice(2, 9).toUpperCase()
 
   const schedule = db.schedules.find((s) => s.id === deposit.schedule_id)
+
+  if (deposit.deposit_type === 'topup') {
+    for (const item of deposit.topup_sends || []) {
+      const amount = Number(item.amount)
+      db.transactions.push({
+        id: uid(),
+        schedule_id: schedule.id,
+        slot_id: null,
+        user_id: schedule.user_id,
+        label: item.label || 'Top-up',
+        amount,
+        fee: feeFor(amount),
+        mpesa_reference: null,
+        status: 'PENDING',
+        scheduled_for: new Date(`${item.date}T${item.send_time}:00+03:00`).toISOString(),
+        sent_at: null,
+        failure_reason: null,
+      })
+    }
+    schedule.locked_balance += deposit.amount
+    schedule.total_deposited += deposit.amount
+    saveDb(db)
+    tick()
+    return { schedule, mpesaReference: deposit.mpesa_reference }
+  }
+
   schedule.total_deposited = deposit.amount
   schedule.locked_balance = deposit.amount
   schedule.status = 'ACTIVE'
@@ -547,11 +603,11 @@ export const mockBackend = {
   updateProfile,
   uploadAvatar,
   onAuthChange,
-  sendOtp,
-  verifyOtp,
+  confirmMpesaNumber,
   resetPassword,
   updatePassword,
   createSchedule,
+  addFunds,
   confirmDeposit,
   listSchedules,
   getSchedule,

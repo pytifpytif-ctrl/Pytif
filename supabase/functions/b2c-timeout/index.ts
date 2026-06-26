@@ -3,7 +3,6 @@
 import { json } from '../_shared/cors.ts'
 import { adminClient } from '../_shared/supabaseAdmin.ts'
 import { auditLog } from '../_shared/auth.ts'
-import { sendSms } from '../_shared/sms.ts'
 
 Deno.serve(async (req) => {
   const supabase = adminClient()
@@ -28,10 +27,6 @@ Deno.serve(async (req) => {
         p_txn_id: txn.id,
         p_reason: 'B2C queue timeout',
       })
-      const phone = (txn as { schedules?: { destination_mpesa?: string } }).schedules?.destination_mpesa
-      if (phone) {
-        await sendSms(phone, `Jiokoe: a scheduled send of Ksh ${txn.amount} failed and will be retried.`)
-      }
       await auditLog(supabase, 'b2c_timeout', { txnId: txn.id }, txn.user_id, req)
     }
 

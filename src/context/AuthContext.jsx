@@ -74,10 +74,8 @@ export function AuthProvider({ children }) {
     return u
   }, [])
 
-  const sendOtp = useCallback((payload) => api.sendOtp(payload), [])
-
-  const verifyOtp = useCallback(async (payload) => {
-    const u = await api.verifyOtp(payload)
+  const confirmMpesaNumber = useCallback(async (payload) => {
+    const u = await api.confirmMpesaNumber(payload)
     setUser(u)
     return u
   }, [])
@@ -95,8 +93,7 @@ export function AuthProvider({ children }) {
     signInWithGoogle,
     updateProfile,
     uploadAvatar,
-    sendOtp,
-    verifyOtp,
+    confirmMpesaNumber,
     updatePassword,
   }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

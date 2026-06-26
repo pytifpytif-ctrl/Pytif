@@ -4,6 +4,9 @@ project_id = "jiokoe"
 [functions.reset-password]
 verify_jwt = false
 
+[functions.confirm-mpesa]
+verify_jwt = true
+
 [functions.send-otp]
 verify_jwt = true
 
@@ -11,6 +14,9 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.create-schedule]
+verify_jwt = true
+
+[functions.add-funds]
 verify_jwt = true
 
 [functions.stk-callback]

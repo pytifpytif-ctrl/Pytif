@@ -15,7 +15,7 @@ export default function Settings() {
   const [uploading, setUploading] = useState(false)
   const [avatarError, setAvatarError] = useState('')
 
-  const hasNumber = Boolean(user?.mpesa_number)
+  const hasVerifiedNumber = Boolean(user?.is_verified && user?.mpesa_number)
 
   const onPickAvatar = async (e) => {
     const file = e.target.files?.[0]
@@ -90,7 +90,7 @@ export default function Settings() {
               </div>
             </div>
 
-            {hasNumber && !editingNumber ? (
+            {hasVerifiedNumber && !editingNumber ? (
               <div className="flex items-center justify-between rounded-2xl border border-line bg-surface-soft px-4 py-3.5">
                 <div className="flex items-center gap-3">
                   <span className="grid h-9 w-9 place-items-center rounded-full bg-accent-500/12 text-accent-600 dark:text-accent-300">
@@ -98,7 +98,7 @@ export default function Settings() {
                   </span>
                   <div>
                     <p className="font-bold text-ink">{formatPhone(user.mpesa_number)}</p>
-                    <p className="text-xs text-accent-600 dark:text-accent-300">Verified</p>
+                    <p className="text-xs text-accent-600 dark:text-accent-300">Saved</p>
                   </div>
                 </div>
                 <button
@@ -110,14 +110,14 @@ export default function Settings() {
               </div>
             ) : (
               <>
-                {!hasNumber && (
+                {!hasVerifiedNumber && (
                   <p className="mb-4 rounded-2xl bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200">
                     Add and verify your M-Pesa number to start locking money.
                   </p>
                 )}
                 <MpesaSetup
                   onDone={() => setEditingNumber(false)}
-                  onCancel={hasNumber ? () => setEditingNumber(false) : undefined}
+                  onCancel={hasVerifiedNumber ? () => setEditingNumber(false) : undefined}
                 />
               </>
             )}

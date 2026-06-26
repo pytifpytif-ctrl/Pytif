@@ -12,7 +12,7 @@ Jiokoe handles real money. No system is 100% unpenetrable, but this document des
 | Payments | Edge Functions + Daraja | Service role only for money movement |
 | Scheduler | pg_cron + pg_net | Internal HTTP to `b2c-send` |
 
-**Never** put `SUPABASE_SERVICE_ROLE_KEY`, Daraja secrets, or SMS keys in the frontend.
+**Never** put `SUPABASE_SERVICE_ROLE_KEY` or Daraja secrets in the frontend.
 
 ---
 
@@ -24,15 +24,14 @@ Jiokoe handles real money. No system is 100% unpenetrable, but this document des
 - **Triggers**: Block client changes to `is_verified`, verified `mpesa_number`, `locked_balance`, schedule `status`, slot amounts, etc.
 - **RPC lockdown**: `activate_schedule`, `mark_send_*`, `process_due_sends` executable only by `service_role`.
 - **Audit log**: `security_audit_log` table (service role only).
-- **Rate limits**: `check_rate_limit()` for OTP and abuse prevention.
+- **Rate limits**: `check_rate_limit()` for abuse prevention (legacy OTP tables may remain).
 
 ### Edge functions
 
 | Function | Protection |
 |----------|------------|
 | `create-schedule` | JWT required; verified M-Pesa only; payout = verified number |
-| `send-otp` | JWT; rate limits per user/IP/phone; CSPRNG codes; no dev codes in production |
-| `verify-otp` | JWT; 5 attempt cap; sets verified via service role |
+| `confirm-mpesa` | JWT; double-entry match; sets verified via service role |
 | `b2c-send` | **Service role bearer required** |
 | `stk-callback` | Amount must match deposit; idempotent confirm; audit log |
 | `b2c-result` / `b2c-timeout` | State checks; amount verification; audit log |
@@ -41,7 +40,7 @@ Jiokoe handles real money. No system is 100% unpenetrable, but this document des
 ### Frontend
 
 - Security headers via `vercel.json` (CSP, HSTS, frame deny, nosniff).
-- Profile onboarding no longer self-verifies M-Pesa (OTP required).
+- Profile onboarding saves M-Pesa only via `confirm-mpesa` (server-side double-entry check).
 - Demo mock backend must not be used in production (`VITE_SUPABASE_*` must be set).
 
 ---
@@ -52,7 +51,7 @@ Jiokoe handles real money. No system is 100% unpenetrable, but this document des
 
 1. Run all migrations: `supabase db push`
 2. Deploy edge functions: `supabase functions deploy`
-3. Set edge secrets: service role, Daraja, Africa's Talking, `MPESA_ENV=production`
+3. Set edge secrets: service role, Daraja, `MPESA_ENV=production`
 4. Enable ** leaked password protection** and ** MFA** for admin accounts
 5. Restrict **Database** network if using Supabase Pro
 6. Rotate service role key if ever exposed
@@ -70,7 +69,7 @@ Jiokoe handles real money. No system is 100% unpenetrable, but this document des
 1. **HTTPS only** (Vercel + Supabase enforce this)
 2. **WAF** — enable on Vercel Pro or Cloudflare in front of app
 3. **Supabase rate limiting** — enable in dashboard
-4. **Alerts** — monitor failed logins, OTP spikes, B2C failures
+4. **Alerts** — monitor failed logins, B2C failures
 5. **Backups** — enable PITR on Supabase Pro for financial data
 
 ### Secrets rotation
@@ -79,7 +78,6 @@ Rotate immediately if compromised:
 
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `MPESA_CONSUMER_SECRET`, `MPESA_PASSKEY`, `MPESA_B2C_SECURITY_CREDENTIAL`
-- `AT_API_KEY`
 - `INTERNAL_WEBHOOK_SECRET`
 
 ---
@@ -91,8 +89,7 @@ Rotate immediately if compromised:
 | Forge STK callback | CheckoutRequestID must exist; amount must match deposit |
 | Trigger B2C without cron | `b2c-send` requires service role |
 | Inflate locked balance via API | Triggers block client writes to balance fields |
-| Self-verify M-Pesa | `is_verified` only via `verify-otp` (service role) |
-| OTP brute force | 5 attempts + rate limits |
+| Self-verify M-Pesa | `is_verified` only via `confirm-mpesa` (service role) |
 | Reset password by phone | Endpoint disabled |
 | SQL injection | Supabase parameterized queries + RLS |
 
@@ -108,7 +105,7 @@ Email security issues privately to the project owner. Do not open public GitHub 
 
 ```bash
 supabase db push
-supabase functions deploy send-otp verify-otp create-schedule stk-callback b2c-send b2c-result b2c-timeout reset-password
+supabase functions deploy confirm-mpesa create-schedule stk-callback b2c-send b2c-result b2c-timeout reset-password
 ```
 
 Then redeploy the frontend so `vercel.json` headers take effect.
