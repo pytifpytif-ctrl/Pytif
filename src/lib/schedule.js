@@ -55,7 +55,7 @@ export function startOfToday() {
 }
 
 /** Sends must be at least this far in the future (matches TimeWheel 5-min steps). */
-export const MIN_SEND_LEAD_MS = 30 * 60 * 1000
+export const MIN_SEND_LEAD_MS = 60 * 60 * 1000
 
 export function timeToMinutes(time) {
   const [h, m] = String(time || '00:00').split(':').map(Number)
@@ -93,7 +93,7 @@ export function earliestAllowedTimeForDate(dateKey, now = new Date()) {
   return `${String(min.getHours()).padStart(2, '0')}:${String(min.getMinutes()).padStart(2, '0')}`
 }
 
-/** Default slot time — today uses now+30min (rounded), future days use 6:00 AM. */
+/** Default slot time — today uses now + 1 hour (rounded), future days use 6:00 AM. */
 export function defaultSendTimeForDate(dateKey) {
   return earliestAllowedTimeForDate(dateKey) || '06:00'
 }

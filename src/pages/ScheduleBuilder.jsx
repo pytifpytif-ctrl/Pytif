@@ -185,21 +185,32 @@ export default function ScheduleBuilder() {
     return { startDate: start, endDate: end, dates }
   }, [pattern, activeDays, activeDates, duration, submitPattern])
 
-  // Keep per-day slots in sync with the selected days (add new, drop removed).
+  // Keep per-day slots in sync with the selected days (add new, drop removed, apply today's min time).
   useEffect(() => {
     if (!isPerDay) return
     setDaySlots((prev) => {
+      let changed = false
       const next = {}
       for (const { key } of dayKeys) {
-        next[key] = prev[key]?.length
-          ? prev[key]
-          : [newSlot({ amount: 100, send_time: defaultSendTimeForDayKey(key, pattern, resolved.dates) })]
+        const minTime = minSendTimeForDayKey(key, pattern, resolved.dates)
+        let list =
+          prev[key]?.length > 0
+            ? prev[key]
+            : [newSlot({ amount: 100, send_time: defaultSendTimeForDayKey(key, pattern, resolved.dates) })]
+        if (!prev[key]?.length) changed = true
+        if (minTime) {
+          const bumped = bumpSlotTimesIfNeeded(list, minTime)
+          if (bumped !== list) changed = true
+          list = bumped
+        }
+        next[key] = list
       }
-      return next
+      if (Object.keys(prev).length !== dayKeys.length) changed = true
+      return changed ? next : prev
     })
   }, [isPerDay, dayKeys, pattern, resolved.dates])
 
-  // Bump prefilled times that fall before the 30-minute window on today's date.
+  // On the sends step, refresh all slot times against the current 1-hour lead window.
   useEffect(() => {
     if (step !== 'slots') return
     if (isPerDay) {
@@ -209,7 +220,7 @@ export default function ScheduleBuilder() {
         for (const { key } of dayKeys) {
           const minTime = minSendTimeForDayKey(key, pattern, resolved.dates)
           const list = prev[key] || []
-          const bumped = bumpSlotTimesIfNeeded(list, minTime)
+          const bumped = minTime ? bumpSlotTimesIfNeeded(list, minTime) : list
           if (bumped !== list) changed = true
           next[key] = bumped
         }
@@ -218,9 +229,10 @@ export default function ScheduleBuilder() {
       return
     }
     const minTime = minSendTimeForFlatSlots(resolved.dates)
-    if (!minTime) return
     setSlots((prev) => {
-      const bumped = bumpSlotTimesIfNeeded(prev, minTime)
+      const list = prev.length ? prev : [newSlot({ amount: 100, label: 'Morning fare' })]
+      if (!minTime) return prev.length ? prev : list
+      const bumped = bumpSlotTimesIfNeeded(list, minTime)
       return bumped === prev ? prev : bumped
     })
   }, [step, isPerDay, dayKeys, pattern, resolved.dates])
@@ -249,7 +261,7 @@ export default function ScheduleBuilder() {
     earliestSend && earliestSend.getTime() < Date.now() + MIN_LEAD_MS
       ? `Your earliest send is ${formatTime12(
           earliestSend.toTimeString().slice(0, 5),
-        )} on ${formatDateShort(earliestSend)}, which is in the past or too soon. Sends must be at least 30 minutes from now — pick a later time${
+        )} on ${formatDateShort(earliestSend)}, which is in the past or too soon. Sends must be at least 1 hour from now — pick a later time${
           pattern === PATTERNS.EVERY_DAY ? '.' : ' or date.'
         }`
       : ''
@@ -643,7 +655,7 @@ function StepDates({ activeDates, setActiveDates }) {
       <p className="mb-5 mt-1 text-ink-muted">
         Tap each calendar date a send should fire. You&apos;ll set times and amounts on the next step.
       </p>
-      <MonthCalendar selected={activeDates} onChange={setActiveDates} multi />
+      <MonthCalendar selected={activeDates} onChange={setActiveDates} multi minDate={startOfToday()} />
       <p className="mt-3 text-center text-sm font-medium text-ink-soft">
         {activeDates.length} date{activeDates.length === 1 ? '' : 's'} selected
       </p>
@@ -747,6 +759,13 @@ function StepSlots({ slots, setSlots, openTime, minTime = null, once = false }) 
         {once
           ? 'Next you’ll set the time and amount — pick which day this send happens.'
           : 'Each row is one send per active day in the range you chose.'}
+        {minTime && (
+          <>
+            {' '}
+            Sends today start at <span className="font-semibold text-ink">{formatTime12(minTime)}</span> or later (1
+            hour from now).
+          </>
+        )}
       </p>
       <SlotList slots={slots} update={update} remove={remove} add={add} openTime={openTime} canRemove={slots.length > 1} />
       {slots.length > 1 && (

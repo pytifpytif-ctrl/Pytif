@@ -208,7 +208,15 @@ async function resetPassword({ email }) {
 
 async function requestPasscodeReset() {
   const { data, error } = await supabase.functions.invoke('request-passcode-reset', { body: {} })
-  if (error) throw new Error(await readFnError(error, 'Could not send reset email.'))
+  if (error) {
+    const raw = error?.message || ''
+    if (/failed to send a request to the edge function|cors|preflight/i.test(raw)) {
+      throw new Error(
+        'Passcode reset is not available yet. Deploy the request-passcode-reset edge function, then retry.',
+      )
+    }
+    throw new Error(await readFnError(error, 'Could not send reset email.'))
+  }
   if (data?.error) throw new Error(formatApiError(data.error, 'Could not send reset email.'))
   return {
     sent: true,
@@ -262,18 +270,18 @@ function formatApiError(value, fallback) {
 
 async function readFnError(error, fallback) {
   const raw = error?.message || ''
-  if (/edge function|functions\.invoke|cors|preflight|failed to send a request/i.test(raw)) {
-    return 'Passcode reset is not available yet. Deploy the request-passcode-reset edge function, then retry.'
-  }
-  if (/failed to fetch|failed to load|networkerror|load resource/i.test(raw)) {
-    return 'Could not reach the server. Log in again, then retry.'
-  }
   try {
     const body = await error?.context?.json?.()
     if (body?.error) return formatApiError(body.error, fallback)
     if (body?.message) return formatApiError(body.message, fallback)
   } catch {
     /* ignore */
+  }
+  if (/failed to fetch|failed to load|networkerror|load resource/i.test(raw)) {
+    return 'Could not reach the server. Log in again, then retry.'
+  }
+  if (/failed to send a request to the edge function/i.test(raw)) {
+    return fallback
   }
   return formatApiError(raw, fallback)
 }
@@ -289,8 +297,8 @@ async function createSchedule(payload) {
   const { data, error } = await supabase.functions.invoke('create-schedule', {
     body: payload,
   })
-  if (error) throw new Error(await readFnError(error, 'Could not create schedule.'))
   if (data?.error) throw new Error(formatApiError(data.error, 'Could not create schedule.'))
+  if (error) throw new Error(await readFnError(error, 'Could not create schedule.'))
   return {
     scheduleId: data.scheduleId,
     depositId: data.depositId,
@@ -306,8 +314,8 @@ async function addFunds({ scheduleId, sends }) {
   const { data, error } = await supabase.functions.invoke('add-funds', {
     body: { scheduleId, sends },
   })
-  if (error) throw new Error(await readFnError(error, 'Could not add funds.'))
   if (data?.error) throw new Error(formatApiError(data.error, 'Could not add funds.'))
+  if (error) throw new Error(await readFnError(error, 'Could not add funds.'))
   if (data?.stkError) {
     return { depositId: data.depositId, total: data.total, stkError: data.stkError }
   }
