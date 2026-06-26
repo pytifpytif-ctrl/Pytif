@@ -116,9 +116,11 @@ createServer(async (req, res) => {
       return
     }
     serveStatic(req, res, url.pathname)
-  } catch {
-    if (!res.headersSent) res.writeHead(500)
-    res.end('Internal Server Error')
+  } catch (err) {
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'Proxy error', message: String(err?.message || err) }))
+    }
   }
 }).listen(port, () => {
   console.log(`Jiokoe listening on port ${port}`)

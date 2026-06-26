@@ -322,6 +322,9 @@ async function readFnError(error, fallback) {
   if (/failed to send a request to the edge function/i.test(raw)) {
     return fallback
   }
+  if (/unexpected end of json|json input/i.test(raw)) {
+    return 'Could not reach the payment server. Try again in a moment.'
+  }
   return formatApiError(raw, fallback)
 }
 

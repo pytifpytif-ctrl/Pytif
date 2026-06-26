@@ -20,6 +20,7 @@ function resolveOrigin(req?: Request): string {
 
   if (allowed.length === 0) {
     if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return origin
+    if (/^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(origin)) return origin
     return '*'
   }
 

@@ -16,6 +16,8 @@ function useSameOriginProxy() {
 /** Route Supabase HTTP calls through our app origin so DevTools never logs the project URL. */
 function toProxyUrl(url) {
   if (!useSameOriginProxy() || !directUrl || !url.startsWith(directUrl)) return url
+  // Edge functions return structured JSON — proxying them caused empty responses on Render.
+  if (url.includes('/functions/v1/')) return url
   return `${PROXY_PREFIX}${url.slice(directUrl.length)}`
 }
 
