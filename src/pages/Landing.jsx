@@ -20,7 +20,6 @@ export default function Landing() {
   const active = LANDING_SLIDES[slide]
   const primaryTo = user ? '/app' : '/register'
   const primaryLabel = user ? 'Open app' : 'Lock my money now'
-  const showHeroCards = active.section === 'hero' || active.section === 'tagline'
 
   const goTo = useCallback((index) => {
     setSlide(((index % LANDING_SLIDES.length) + LANDING_SLIDES.length) % LANDING_SLIDES.length)
@@ -58,7 +57,7 @@ export default function Landing() {
           <Logo size={56} wordmark className="[&_span:last-child]:text-white" />
         </div>
 
-        {showHeroCards ? <HeroCards /> : <div className="h-2 shrink-0" aria-hidden />}
+        <HeroCards />
 
         <header className="mb-1.5 mt-2 flex shrink-0 items-center justify-center">
           <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-zinc-500">
@@ -385,44 +384,52 @@ function SlideBody({ slide }) {
 
 function HeroCards() {
   return (
-    <div className="relative mx-auto h-[118px] w-full max-w-[240px] shrink-0 animate-scale-in">
-      <div
-        className="absolute left-2 top-0 h-[72px] w-[78%] -rotate-[14deg] rounded-[1rem] bg-gradient-to-br from-zinc-800 to-zinc-950 p-3 text-white ring-1 ring-white/10"
-        aria-hidden
-      >
-        <p className="text-[8px] font-medium text-zinc-500">Bills fund</p>
-        <p className="mt-2 text-sm font-extrabold tracking-tight">Ksh 12,000</p>
-        <p className="mt-0.5 text-[8px] text-zinc-600">Every 1st · locked</p>
-      </div>
+    <div className="relative mx-auto h-[124px] w-full max-w-[min(268px,94vw)] shrink-0 animate-scale-in">
+      <div className="absolute left-1/2 top-0 w-full max-w-[268px] origin-top -translate-x-1/2 scale-[0.9] min-[380px]:scale-[0.96]">
+        <div className="relative h-[132px] w-full">
+          {/* Small cards — sit behind */}
+          <div className="absolute inset-x-0 top-0 z-0 -translate-x-3 min-[380px]:-translate-x-4">
+            <div
+              className="absolute left-0 top-0 h-[72px] w-[72%] max-w-[168px] -rotate-[12deg] rounded-[1rem] bg-gradient-to-br from-zinc-800 to-zinc-950 p-3 text-white ring-1 ring-white/10"
+              aria-hidden
+            >
+              <p className="text-[8px] font-medium text-zinc-500">Bills fund</p>
+              <p className="mt-2 text-sm font-extrabold tracking-tight">Ksh 12,000</p>
+              <p className="mt-0.5 text-[8px] text-zinc-600">Every 1st · locked</p>
+            </div>
 
-      <div
-        className="absolute right-1 top-1.5 h-[72px] w-[78%] rotate-[8deg] rounded-[1rem] money-card p-3 shadow-lg shadow-orange-900/30"
-        aria-hidden
-      >
-        <div className="flex items-center justify-between">
-          <p className="text-[8px] font-medium text-white/85">Daily transport</p>
-          <Icon name="clock" size={11} className="text-white/70" />
-        </div>
-        <p className="mt-2 text-sm font-extrabold tracking-tight">Ksh 250</p>
-        <p className="mt-0.5 text-[8px] text-white/70">Returns each weekday</p>
-      </div>
+            <div
+              className="absolute right-5 top-1 h-[66px] w-[64%] max-w-[152px] rotate-[8deg] rounded-[1rem] money-card p-2.5 shadow-lg shadow-orange-900/30"
+              aria-hidden
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-[8px] font-medium text-white/85">Daily transport</p>
+                <Icon name="clock" size={10} className="text-white/70" />
+              </div>
+              <p className="mt-1.5 text-sm font-extrabold tracking-tight">Ksh 250</p>
+              <p className="mt-0.5 text-[8px] text-white/70">Returns each weekday</p>
+            </div>
+          </div>
 
-      <div className="animate-stk-float absolute bottom-0 left-1/2 w-[88%] -translate-x-1/2 rounded-[1rem] bg-zinc-900 p-3 text-white ring-1 ring-white/10">
-        <div className="pointer-events-none absolute -right-4 -top-4 h-12 w-12 rounded-full bg-orange-500/25 blur-2xl" />
-        <div className="relative flex items-start justify-between gap-2">
-          <div>
-            <p className="text-[8px] font-medium text-zinc-500">Total locked</p>
-            <p className="mt-0.5 text-lg font-extrabold tracking-tight">Ksh 48,500</p>
+          {/* Main card — larger, right, overlaps the two above */}
+          <div className="animate-stk-float absolute bottom-0 right-0 z-20 w-[88%] max-w-[236px] rounded-[1rem] bg-zinc-900 p-3 text-white shadow-[0_16px_40px_-12px_rgba(0,0,0,0.65)] ring-1 ring-white/10">
+            <div className="pointer-events-none absolute -right-4 -top-4 h-14 w-14 rounded-full bg-orange-500/25 blur-2xl" />
+            <div className="relative flex items-start justify-between gap-2">
+              <div>
+                <p className="text-[8px] font-medium text-zinc-500">Total locked</p>
+                <p className="mt-0.5 text-lg font-extrabold tracking-tight">Ksh 48,500</p>
+              </div>
+              <span className="rounded-full bg-orange-500/20 px-1.5 py-0.5 text-[7px] font-bold tracking-wide text-orange-300">
+                JIOKOE
+              </span>
+            </div>
+            <div className="relative mt-2 flex items-center gap-2">
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
+                <div className="h-full w-[68%] rounded-full bg-orange-500" />
+              </div>
+              <span className="text-[8px] text-zinc-600">3 active</span>
+            </div>
           </div>
-          <span className="rounded-full bg-orange-500/20 px-1.5 py-0.5 text-[7px] font-bold tracking-wide text-orange-300">
-            JIOKOE
-          </span>
-        </div>
-        <div className="relative mt-1.5 flex items-center gap-2">
-          <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full w-[68%] rounded-full bg-orange-500" />
-          </div>
-          <span className="text-[8px] text-zinc-600">3 active</span>
         </div>
       </div>
     </div>
