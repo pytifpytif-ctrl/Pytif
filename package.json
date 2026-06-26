@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "npm run audit:prod && npm run pwa:icons && vite build",
     "preview": "vite preview",
-    "start": "serve -s dist -l ${PORT:-10000}",
+    "start": "node server.mjs",
     "audit:prod": "npm audit --omit=dev --audit-level=high",
     "pwa:icons": "node scripts/generate-pwa-icons.mjs"
   },

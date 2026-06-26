@@ -73,12 +73,19 @@ async function login({ email, password }) {
   if (!cleanEmail || !password) {
     throw new Error('Enter your email and password.')
   }
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: cleanEmail,
-    password,
-  })
-  if (error) throw new Error('Wrong email or password.')
-  return (await currentUser()) ?? { id: data.user.id, email: data.user.email }
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password,
+    })
+    if (error) throw new Error('Wrong email or password.')
+    return (await currentUser()) ?? { id: data.user.id, email: data.user.email }
+  } catch (err) {
+    if (isNetworkError(err) || err.message === 'Failed to fetch') {
+      throw new Error('Could not reach the server. Try again in a moment.')
+    }
+    throw err
+  }
 }
 
 /** Save M-Pesa number after the user enters it twice. */
@@ -172,11 +179,18 @@ async function uploadAvatar(file) {
 }
 
 async function signInWithGoogle() {
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: `${window.location.origin}/app` },
-  })
-  if (error) throw new Error(authFlowErrorMessage(error, 'Could not start Google sign-in.'))
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/app` },
+    })
+    if (error) throw new Error(authFlowErrorMessage(error, 'Could not start Google sign-in.'))
+  } catch (err) {
+    if (isNetworkError(err)) {
+      throw new Error('Could not reach the server. Try again in a moment.')
+    }
+    throw err
+  }
   // Browser redirects to Google; resolution happens on return.
 }
 

@@ -8,6 +8,8 @@ export const isSupabaseConfigured = Boolean(directUrl && anonKey)
 
 function useSameOriginProxy() {
   if (import.meta.env.VITE_SUPABASE_PROXY === 'false') return false
+  if (import.meta.env.VITE_SUPABASE_PROXY === 'true') return true
+  // Dev uses the Vite proxy; production uses server.mjs (Render) or Vercel /api route.
   return typeof window !== 'undefined'
 }
 
