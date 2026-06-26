@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api.js'
+import { useCachedQuery } from '../hooks/useCachedQuery.js'
 import { useScheduler } from '../hooks/useScheduler.js'
 import { useHidePageScrollbar } from '../hooks/useHidePageScrollbar.js'
 import { ScreenHeader, Spinner, StatusBadge, Alert } from '../components/ui.jsx'
@@ -11,22 +12,14 @@ import { PATTERNS, WEEKDAY_LABELS, fromDateKey } from '../lib/schedule.js'
 export default function ScheduleDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const fetchSchedule = useCallback(() => api.getSchedule(id), [id])
+  const { data, loading, reload } = useCachedQuery(`schedule:${id}`, fetchSchedule, { enabled: Boolean(id) })
   const [showCancel, setShowCancel] = useState(false)
   const [cancelDone, setCancelDone] = useState(false)
 
-  const load = useCallback(async () => {
-    const d = await api.getSchedule(id)
-    setData(d)
-    setLoading(false)
-  }, [id])
-
-  useEffect(() => {
-    load()
-  }, [load])
-
-  useScheduler(load)
+  useScheduler(() => {
+    void reload({ silent: true })
+  })
   useHidePageScrollbar()
 
   if (loading || !data) {

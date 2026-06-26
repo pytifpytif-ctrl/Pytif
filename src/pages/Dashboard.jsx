@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useBalance } from '../context/BalanceContext.jsx'
 import { api } from '../lib/api.js'
+import { useCachedQuery } from '../hooks/useCachedQuery.js'
 import { useScheduler } from '../hooks/useScheduler.js'
 import { Avatar, Spinner } from '../components/ui.jsx'
 import { Icon } from '../components/icons.jsx'
@@ -14,20 +15,10 @@ const VISIBLE_SCHEDULE_ROWS = 5
 export default function Dashboard() {
   const { user } = useAuth()
   const { hidden, toggle, mask } = useBalance()
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const fetchDashboard = useCallback(() => api.getDashboard(), [])
+  const { data, loading, reload } = useCachedQuery('dashboard', fetchDashboard)
 
-  const load = useCallback(async () => {
-    const d = await api.getDashboard()
-    setData(d)
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    load()
-  }, [load])
-
-  useScheduler(load)
+  useScheduler(reload)
 
   if (loading || !data) {
     return (

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { api } from '../lib/api.js'
 import { clearUnlock } from '../lib/appPasscode.js'
+import { clearPageCache } from '../lib/pageCache.js'
 
 const AuthContext = createContext(null)
 
@@ -64,6 +65,7 @@ export function AuthProvider({ children }) {
     const id = user?.id
     await api.logout()
     if (id) clearUnlock(id)
+    clearPageCache()
     setUser(null)
   }, [user?.id])
 

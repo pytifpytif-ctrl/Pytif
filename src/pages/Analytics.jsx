@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../lib/api.js'
+import { useCachedQuery } from '../hooks/useCachedQuery.js'
 import { useScheduler } from '../hooks/useScheduler.js'
 import { useBalance } from '../context/BalanceContext.jsx'
 import { ScreenHeader, Spinner, EmptyState } from '../components/ui.jsx'
@@ -27,24 +28,26 @@ function dayLabel(day) {
 
 export default function Analytics() {
   const { mask } = useBalance()
-  const [deposits, setDeposits] = useState([])
-  const [txns, setTxns] = useState([])
-  const [loading, setLoading] = useState(true)
+  const fetchDeposits = useCallback(() => api.listDeposits(), [])
+  const fetchTxns = useCallback(() => api.listTransactions(), [])
+  const { data: deposits, loading: depLoading, reload: reloadDeposits } = useCachedQuery(
+    'deposits',
+    fetchDeposits,
+  )
+  const { data: txns, loading: txnLoading, reload: reloadTxns } = useCachedQuery(
+    'transactions',
+    fetchTxns,
+  )
+  const loading = depLoading && deposits == null && txnLoading && txns == null
   const topChromeRef = useRef(null)
   const [topChromeHeight, setTopChromeHeight] = useState(0)
 
-  const load = useCallback(async () => {
-    const [d, t] = await Promise.all([api.listDeposits(), api.listTransactions()])
-    setDeposits(d)
-    setTxns(t)
-    setLoading(false)
-  }, [])
+  const refresh = useCallback(() => {
+    void reloadDeposits({ silent: true })
+    void reloadTxns({ silent: true })
+  }, [reloadDeposits, reloadTxns])
 
-  useEffect(() => {
-    load()
-  }, [load])
-
-  useScheduler(load)
+  useScheduler(refresh)
 
   useLayoutEffect(() => {
     const el = topChromeRef.current
@@ -66,14 +69,14 @@ export default function Analytics() {
     }
   }, [loading])
 
-  const sendSeries = useMemo(() => groupByDay(txns, 'scheduled_for'), [txns])
-  const inSeries = useMemo(() => groupByDay(deposits, 'created_at'), [deposits])
+  const sendSeries = useMemo(() => groupByDay(txns ?? [], 'scheduled_for'), [txns])
+  const inSeries = useMemo(() => groupByDay(deposits ?? [], 'created_at'), [deposits])
 
   const sendBars = sendSeries.map((s) => ({ label: dayLabel(s.day), value: s.total }))
   const inBars = inSeries.map((s) => ({ label: dayLabel(s.day), value: s.total }))
 
-  const sendTotal = txns.reduce((s, t) => s + (Number(t.amount) || 0), 0)
-  const inTotal = deposits.reduce((s, d) => s + (Number(d.amount) || 0), 0)
+  const sendTotal = (txns ?? []).reduce((s, t) => s + (Number(t.amount) || 0), 0)
+  const inTotal = (deposits ?? []).reduce((s, d) => s + (Number(d.amount) || 0), 0)
 
   if (loading) {
     return (
@@ -83,7 +86,7 @@ export default function Analytics() {
     )
   }
 
-  const empty = txns.length === 0 && deposits.length === 0
+  const empty = (txns ?? []).length === 0 && (deposits ?? []).length === 0
 
   return (
     <div className="mx-auto flex min-h-0 w-full min-w-0 max-w-2xl flex-1 flex-col overflow-hidden">

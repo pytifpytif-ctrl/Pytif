@@ -4,6 +4,8 @@ import { Avatar, Logo, ThemeToggle } from './ui.jsx'
 import { Icon } from './icons.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useInactivityLogout } from '../hooks/useInactivityLogout.js'
+import { api } from '../lib/api.js'
+import { readPageCache, writePageCache } from '../lib/pageCache.js'
 import PwaInstallPrompt from './PwaInstallPrompt.jsx'
 
 const tabs = [
@@ -48,6 +50,34 @@ export default function AppLayout() {
       document.body.classList.remove('home-no-scroll')
     }
   }, [isHome, isAnalytics, isHistory, isNotifications, isProfile])
+
+  // Warm common tab data so the first tap feels instant too.
+  useEffect(() => {
+    if (!user?.id) return undefined
+    let cancelled = false
+    const warm = async () => {
+      const jobs = [
+        ['dashboard', () => api.getDashboard()],
+        ['transactions', () => api.listTransactions()],
+        ['deposits', () => api.listDeposits()],
+      ]
+      await Promise.all(
+        jobs.map(async ([key, fn]) => {
+          if (readPageCache(key) || cancelled) return
+          try {
+            writePageCache(key, await fn())
+          } catch {
+            /* ignore background prefetch errors */
+          }
+        }),
+      )
+    }
+    const timer = window.setTimeout(warm, 80)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [user?.id])
 
   const signOut = async () => {
     await logout()
@@ -109,8 +139,7 @@ export default function AppLayout() {
       {/* Main content */}
       <div className="flex min-h-screen flex-1 flex-col lg:pl-64">
         <main
-          key={location.pathname}
-          className={`flex-1 animate-fade-in px-5 max-lg:pt-0 lg:px-10 lg:pb-12 lg:pt-8 ${
+          className={`flex-1 px-5 max-lg:pt-0 lg:px-10 lg:pb-12 lg:pt-8 ${
             mobileFixed
               ? `max-lg:flex max-lg:h-dvh max-lg:max-h-dvh max-lg:flex-col max-lg:overflow-hidden ${
                   scrollUnderNav ? 'max-lg:pb-0' : 'max-lg:pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]'

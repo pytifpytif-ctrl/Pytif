@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../lib/api.js'
+import { useCachedQuery } from '../hooks/useCachedQuery.js'
 import { useScheduler } from '../hooks/useScheduler.js'
 import { useBalance } from '../context/BalanceContext.jsx'
 import { ScreenHeader, Spinner, StatusBadge, EmptyState } from '../components/ui.jsx'
@@ -25,27 +26,29 @@ function loadReadIds() {
 
 export default function Notifications() {
   const { mask } = useBalance()
-  const [deposits, setDeposits] = useState([])
-  const [txns, setTxns] = useState([])
-  const [loading, setLoading] = useState(true)
+  const fetchDeposits = useCallback(() => api.listDeposits(), [])
+  const fetchTxns = useCallback(() => api.listTransactions(), [])
+  const { data: deposits, loading: depLoading, reload: reloadDeposits } = useCachedQuery(
+    'deposits',
+    fetchDeposits,
+  )
+  const { data: txns, loading: txnLoading, reload: reloadTxns } = useCachedQuery(
+    'transactions',
+    fetchTxns,
+  )
+  const loading = depLoading && deposits == null && txnLoading && txns == null
   const [filter, setFilter] = useState('ALL')
   const [readIds, setReadIds] = useState(loadReadIds)
   const [selected, setSelected] = useState(null)
   const topChromeRef = useRef(null)
   const [topChromeHeight, setTopChromeHeight] = useState(0)
 
-  const load = useCallback(async () => {
-    const [d, t] = await Promise.all([api.listDeposits(), api.listTransactions()])
-    setDeposits(d)
-    setTxns(t)
-    setLoading(false)
-  }, [])
+  const refresh = useCallback(() => {
+    void reloadDeposits({ silent: true })
+    void reloadTxns({ silent: true })
+  }, [reloadDeposits, reloadTxns])
 
-  useEffect(() => {
-    load()
-  }, [load])
-
-  useScheduler(load)
+  useScheduler(refresh)
 
   const persistRead = (set) => localStorage.setItem(READ_KEY, JSON.stringify([...set]))
 
@@ -60,7 +63,7 @@ export default function Notifications() {
   }, [])
 
   const allEvents = useMemo(() => {
-    const inEvents = deposits.map((d) => ({
+    const inEvents = (deposits ?? []).map((d) => ({
       id: `dep-${d.id}`,
       kind: 'IN',
       when: d.created_at,
@@ -71,7 +74,7 @@ export default function Notifications() {
       schedule: d.schedule_name,
       reference: d.mpesa_reference,
     }))
-    const outEvents = txns.map((t) => ({
+    const outEvents = (txns ?? []).map((t) => ({
       id: `txn-${t.id}`,
       kind: 'OUT',
       when: t.scheduled_for,
@@ -134,8 +137,8 @@ export default function Notifications() {
     markRead(e.id)
   }
 
-  const totalIn = deposits.filter((d) => d.status === 'CONFIRMED').reduce((s, d) => s + d.amount, 0)
-  const totalOut = txns.filter((t) => t.status === 'SUCCESS').reduce((s, t) => s + t.amount, 0)
+  const totalIn = (deposits ?? []).filter((d) => d.status === 'CONFIRMED').reduce((s, d) => s + d.amount, 0)
+  const totalOut = (txns ?? []).filter((t) => t.status === 'SUCCESS').reduce((s, t) => s + t.amount, 0)
 
   if (loading) {
     return (

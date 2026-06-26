@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api.js'
+import { useCachedQuery } from '../hooks/useCachedQuery.js'
 import { useScheduler } from '../hooks/useScheduler.js'
 import { useBalance } from '../context/BalanceContext.jsx'
 import { ScreenHeader, Spinner, EmptyState, StatusBadge } from '../components/ui.jsx'
@@ -36,9 +37,12 @@ const SCHEDULE_STATUS_LABEL = {
 
 export default function History() {
   const { mask } = useBalance()
-  const [txns, setTxns] = useState([])
-  const [schedules, setSchedules] = useState([])
-  const [loading, setLoading] = useState(true)
+  const fetchTxns = useCallback(() => api.listTransactions(), [])
+  const fetchDash = useCallback(() => api.getDashboard(), [])
+  const { data: txns, loading: txLoading, reload: reloadTxns } = useCachedQuery('transactions', fetchTxns)
+  const { data: dash, loading: dashLoading, reload: reloadDash } = useCachedQuery('dashboard', fetchDash)
+  const schedules = dash?.schedules ?? []
+  const loading = txLoading && txns == null && dashLoading && dash == null
   const [view, setView] = useState('sends')
   const [sendStatus, setSendStatus] = useState('ALL')
   const [scheduleFilter, setScheduleFilter] = useState('ALL')
@@ -49,18 +53,12 @@ export default function History() {
   const topChromeRef = useRef(null)
   const [topChromeHeight, setTopChromeHeight] = useState(0)
 
-  const load = useCallback(async () => {
-    const [t, dash] = await Promise.all([api.listTransactions(), api.getDashboard()])
-    setTxns(t)
-    setSchedules(dash.schedules)
-    setLoading(false)
-  }, [])
+  const refresh = useCallback(() => {
+    void reloadTxns({ silent: true })
+    void reloadDash({ silent: true })
+  }, [reloadTxns, reloadDash])
 
-  useEffect(() => {
-    load()
-  }, [load])
-
-  useScheduler(load)
+  useScheduler(refresh)
 
   useLayoutEffect(() => {
     const el = topChromeRef.current
@@ -85,7 +83,7 @@ export default function History() {
   const tokens = useMemo(() => query.trim().toLowerCase().split(/\s+/).filter(Boolean), [query])
 
   const filteredTxns = useMemo(() => {
-    return txns.filter((t) => {
+    return (txns ?? []).filter((t) => {
       if (sendStatus !== 'ALL' && t.status !== sendStatus) return false
       if (scheduleId !== 'ALL' && t.schedule_id !== scheduleId) return false
       const day = t.scheduled_for.slice(0, 10)
