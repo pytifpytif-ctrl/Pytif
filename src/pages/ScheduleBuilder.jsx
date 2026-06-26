@@ -324,7 +324,6 @@ export default function ScheduleBuilder() {
       setError(leadError)
       return
     }
-    setPhase('stk')
     let created = null
     try {
       const payload = {
@@ -347,6 +346,10 @@ export default function ScheduleBuilder() {
           })),
       }
       created = await api.createSchedule(payload)
+      if (!created?.depositId) {
+        throw new Error('Could not start the M-Pesa deposit. Try again.')
+      }
+      setPhase('stk')
       const confirmed = await api.confirmDeposit(created.depositId)
       const firstPending = (await api.getSchedule(created.scheduleId)).transactions.find(
         (t) => t.status === 'PENDING',
