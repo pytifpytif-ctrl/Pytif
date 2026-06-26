@@ -59,6 +59,7 @@ function SignUpMark({ size = 18, className = '', strokeWidth: _sw }) {
       viewBox="0 0 24 24"
       fill="none"
       className={className}
+      style={{ overflow: 'visible' }}
       aria-hidden="true"
     >
       <path
@@ -143,5 +144,12 @@ const ICONS = {
 export function Icon({ name, size = 20, className = '', strokeWidth = 2 }) {
   const Cmp = ICONS[name]
   if (!Cmp) return null
-  return <Cmp size={size} strokeWidth={strokeWidth} className={className} aria-hidden="true" />
+  return (
+    <Cmp
+      size={size}
+      strokeWidth={strokeWidth}
+      className={`shrink-0 overflow-visible ${className}`.trim()}
+      aria-hidden="true"
+    />
+  )
 }

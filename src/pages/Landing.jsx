@@ -6,7 +6,7 @@ import { Logo } from '../components/ui.jsx'
 import ExampleCard from '../components/landing/ExampleCard.jsx'
 import ScenarioCard from '../components/landing/ScenarioCard.jsx'
 import PromiseItem from '../components/landing/PromiseItem.jsx'
-import { SlideEyebrow, SlideFrame, StepPills } from '../components/landing/SlideFrame.jsx'
+import { SlideEyebrow, SlideFrame, SlideBodyText, StepPills } from '../components/landing/SlideFrame.jsx'
 import {
   DAILY_SCHEDULE_ROWS,
   LANDING_SLIDES,
@@ -53,7 +53,7 @@ export default function Landing() {
   return (
     <div className="landing-shell relative flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden">
       <main className="relative z-10 mx-auto flex h-full w-full max-w-[390px] flex-col px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <div className="mb-2 flex shrink-0 items-center">
+        <div className="mb-2 flex shrink-0 items-center pl-1.5">
           <Logo size={56} wordmark className="[&_span:last-child]:text-white" />
         </div>
 
@@ -89,7 +89,7 @@ export default function Landing() {
 
             <article
               key={active.id}
-              className="landing-card pointer-events-none relative flex h-full max-h-full flex-col overflow-y-auto rounded-xl p-3.5 animate-slide-up"
+              className="landing-card pointer-events-none relative flex h-full max-h-full flex-col overflow-y-auto overflow-x-visible rounded-xl px-4 py-3.5 animate-slide-up"
             >
               <SlideBody slide={active} />
             </article>
@@ -99,16 +99,20 @@ export default function Landing() {
         <div className="mt-2 shrink-0 space-y-2">
           <Link
             to={primaryTo}
-            className="btn-primary press flex h-[48px] w-full items-center justify-center gap-2 rounded-2xl text-[15px] font-bold"
+            className="btn-primary press flex h-[48px] w-full items-center justify-center gap-2.5 rounded-2xl px-5 text-[15px] font-bold"
           >
             {user ? (
               <>
-                <Icon name="rocket" size={18} strokeWidth={2.2} />
+                <span className="landing-cta-icon">
+                  <Icon name="rocket" size={18} strokeWidth={2.2} />
+                </span>
                 {primaryLabel}
               </>
             ) : (
               <>
-                <Icon name="signUp" size={24} />
+                <span className="landing-cta-icon">
+                  <Icon name="signUp" size={22} />
+                </span>
                 {primaryLabel}
               </>
             )}
@@ -116,9 +120,11 @@ export default function Landing() {
           {!user && (
             <Link
               to="/login"
-              className="press flex h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-zinc-700 bg-transparent text-[15px] font-semibold text-zinc-400"
+              className="press flex h-[44px] w-full items-center justify-center gap-2.5 rounded-2xl border border-zinc-700 bg-transparent px-5 text-[15px] font-semibold text-zinc-400"
             >
-              <Icon name="rocket" size={18} strokeWidth={2.2} />
+              <span className="landing-cta-icon">
+                <Icon name="rocket" size={18} strokeWidth={2.2} />
+              </span>
               Sign in
             </Link>
           )}
@@ -196,26 +202,26 @@ function SlideBody({ slide }) {
 
     case 'hero-sub':
       return (
-        <SlideFrame accent="orange" icon="trend" centered>
-          <p className="text-[14px] leading-[1.65] text-zinc-300">
+        <SlideFrame accent="orange" icon="trend" centered compact>
+          <SlideBodyText>
             We know the feeling. Pocket money, side hustle, allowance — it lands and you feel rich.
             <br />
             Then somehow by the 5th, bills are due and you&apos;re skipping lunch.
-          </p>
-          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-3.5 py-1.5">
+          </SlideBodyText>
+          <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-orange-500/25 bg-orange-500/10 px-3 py-1">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" aria-hidden />
-            <span className="text-[13px] text-zinc-300">There&apos;s a better way. It&apos;s called Jiokoe.</span>
+            <span className="text-[12px] text-zinc-300">There&apos;s a better way. It&apos;s called Jiokoe.</span>
           </div>
         </SlideFrame>
       )
 
     case 'mirror-title':
       return (
-        <SlideFrame accent="orange" icon="moodSad">
-          <h2 className="text-lg font-semibold leading-snug text-white">
+        <SlideFrame accent="orange" icon="moodSad" compact>
+          <h2 className="text-[17px] font-semibold leading-snug text-white">
             Do the next few examples sound familiar?
           </h2>
-          <p className="mt-2 text-[13px] leading-relaxed text-zinc-500">
+          <p className="mt-1.5 text-[12px] leading-relaxed text-zinc-500">
             Swipe through — you might recognise your own week.
           </p>
         </SlideFrame>
@@ -230,9 +236,9 @@ function SlideBody({ slide }) {
 
     case 'quote':
       return (
-        <SlideFrame accent="orange" icon="phone">
-          <div className="rounded-xl border border-zinc-700/80 bg-zinc-800/50 p-4 ring-1 ring-orange-500/15">
-            <blockquote className="border-l-[3px] border-orange-500 py-0.5 pl-3 text-[14px] italic leading-[1.65] text-zinc-100">
+        <SlideFrame accent="orange" icon="phone" compact>
+          <div className="rounded-lg border border-zinc-700/80 bg-zinc-800/50 p-3 ring-1 ring-orange-500/15">
+            <blockquote className="border-l-2 border-orange-500 py-0.5 pl-2.5 text-[13px] italic leading-[1.6] text-zinc-100">
               &ldquo;The problem isn&apos;t how much you get. It&apos;s that money sitting in your Mpesa is money you
               will spend. Jiokoe fixes that.&rdquo;
             </blockquote>
@@ -252,12 +258,13 @@ function SlideBody({ slide }) {
 
     case 'what-body':
       return (
-        <SlideFrame accent="orange" icon="lock">
-          <p className="text-[14px] leading-[1.65] text-zinc-300">
+        <SlideFrame accent="orange" icon="lock" compact>
+          <SlideBodyText>
             At Jiokoe, you lock your money and tell us when to send it back to you — down to the exact time of
             day. We hold it. We send it. You get it only when you said you needed it. Not before.
-          </p>
+          </SlideBodyText>
           <StepPills
+            compact
             steps={[
               { icon: 'lock', label: 'Lock it' },
               { icon: 'clock', label: 'Set the time' },
@@ -298,13 +305,14 @@ function SlideBody({ slide }) {
 
     case 'connector':
       return (
-        <SlideFrame accent="orange" icon="bolt">
-          <p className="text-[14px] leading-[1.65] text-zinc-300">
+        <SlideFrame accent="orange" icon="bolt" compact>
+          <SlideBodyText>
             Every day at exactly those times, Jiokoe sends the money to your Mpesa. Not a shilling more. So when
             you go out at night and overspend — the next morning your transport money still arrives. Your lunch
             still arrives. Your life keeps running.
-          </p>
+          </SlideBodyText>
           <StepPills
+            compact
             steps={[
               { icon: 'clock', label: '6:00 AM transport' },
               { icon: 'clock', label: '12:00 PM lunch' },
@@ -333,12 +341,13 @@ function SlideBody({ slide }) {
 
     case 'trip-close':
       return (
-        <SlideFrame accent="green" icon="beach">
-          <p className="text-[14px] leading-[1.65] text-zinc-300">
+        <SlideFrame accent="green" icon="beach" compact>
+          <SlideBodyText>
             Create a trip wallet for Mombasa (or any goal). Add funds manually whenever you can — then on the exact
             date and time you pick, Jiokoe sends it all to your Mpesa. That trip is finally happening.
-          </p>
+          </SlideBodyText>
           <StepPills
+            compact
             steps={[
               { icon: 'plus', label: 'Add funds' },
               { icon: 'lock', label: 'Stay locked' },

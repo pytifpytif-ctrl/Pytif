@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useBalance } from '../context/BalanceContext.jsx'
@@ -7,8 +7,9 @@ import { useCachedQuery } from '../hooks/useCachedQuery.js'
 import { useScheduler } from '../hooks/useScheduler.js'
 import { Avatar, Spinner } from '../components/ui.jsx'
 import { Icon } from '../components/icons.jsx'
-import { Gauge, MiniBars } from '../components/charts.jsx'
+import { Gauge, WeeklyActivityBars } from '../components/charts.jsx'
 import { formatKes, formatDateTime } from '../lib/format.js'
+import { buildWeeklyActivity, sumWeeklyActivity } from '../lib/weeklyActivity.js'
 
 const VISIBLE_SCHEDULE_ROWS = 5
 
@@ -16,9 +17,25 @@ export default function Dashboard() {
   const { user } = useAuth()
   const { hidden, toggle, mask } = useBalance()
   const fetchDashboard = useCallback(() => api.getDashboard(), [])
+  const fetchTxns = useCallback(() => api.listTransactions(), [])
+  const fetchDeposits = useCallback(() => api.listDeposits(), [])
   const { data, loading, reload } = useCachedQuery('dashboard', fetchDashboard)
+  const { data: txns, reload: reloadTxns } = useCachedQuery('transactions', fetchTxns)
+  const { data: deposits, reload: reloadDeposits } = useCachedQuery('deposits', fetchDeposits)
 
-  useScheduler(reload)
+  const refresh = useCallback(() => {
+    void reload({ silent: true })
+    void reloadTxns({ silent: true })
+    void reloadDeposits({ silent: true })
+  }, [reload, reloadTxns, reloadDeposits])
+
+  useScheduler(refresh)
+
+  const weeklyDays = useMemo(
+    () => buildWeeklyActivity({ transactions: txns ?? [], deposits: deposits ?? [] }),
+    [txns, deposits],
+  )
+  const weekTotals = useMemo(() => sumWeeklyActivity(weeklyDays), [weeklyDays])
 
   if (loading || !data) {
     return (
@@ -38,8 +55,8 @@ export default function Dashboard() {
   const todayDone = data.upcomingToday.filter((t) => t.status === 'SUCCESS').length
   const recyclable = others.find((s) => s.status === 'COMPLETED')
 
-  const bars = active.slice(0, 7).map((s) => ({ label: s.name.slice(0, 3), value: s.locked_balance }))
   const isEmpty = data.schedules.length === 0
+  const showWeeklyChart = data.schedules.length > 0
 
   return (
     <div className="animate-fade-in max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:overflow-hidden">
@@ -193,19 +210,30 @@ export default function Dashboard() {
         </section>
         </div>
 
-        {/* Locked by schedule — visible on mobile + desktop */}
-        {active.length > 0 && (
+        {/* Weekly activity — Sun through Sat of the current week */}
+        {showWeeklyChart && (
           <section className="card mt-3 shrink-0 p-3.5 lg:mt-5 lg:p-5">
             <div className="mb-3 flex items-center justify-between gap-2 lg:mb-4">
               <div>
-                <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted lg:text-sm">Locked by schedule</h2>
-                <p className="mt-0.5 text-[11px] text-ink-muted lg:text-xs">Distribution of your committed balance</p>
+                <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted lg:text-sm">This week</h2>
+                <p className="mt-0.5 text-[11px] text-ink-muted lg:text-xs">
+                  Money locked in and scheduled out · Sun–Sat
+                </p>
               </div>
-              <span className="shrink-0 rounded-full bg-orange-500/10 px-2.5 py-1 text-[11px] font-semibold text-orange-600 dark:text-orange-300 lg:px-3 lg:text-xs">
-                {mask(formatKes(data.totalLocked))}
-              </span>
+              <div className="flex shrink-0 flex-col items-end gap-0.5 text-[10px] font-semibold lg:text-[11px]">
+                <span className="text-emerald-600 dark:text-emerald-400">
+                  In {mask(formatKes(weekTotals.moneyIn))}
+                </span>
+                <span className="text-orange-600 dark:text-orange-300">
+                  Out {mask(formatKes(weekTotals.moneyOut))}
+                </span>
+              </div>
             </div>
-            <MiniBars data={bars} height={90} />
+            <WeeklyActivityBars
+              data={weeklyDays}
+              height={96}
+              formatAmount={(v) => mask(formatKes(v))}
+            />
           </section>
         )}
 

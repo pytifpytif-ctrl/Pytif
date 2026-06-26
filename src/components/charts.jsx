@@ -73,6 +73,95 @@ export function MiniBars({ data = [], height = 120, accentIndex }) {
   )
 }
 
+/**
+ * Sun–Sat weekly activity: one stacked bar per day (green = money in, orange = money out).
+ * Current day uses full colour; other days are muted.
+ */
+export function WeeklyActivityBars({
+  data = [],
+  height = 100,
+  formatAmount = (v) => String(v),
+}) {
+  const [grown, setGrown] = useState(false)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setGrown(true))
+    return () => cancelAnimationFrame(id)
+  }, [data])
+
+  const maxTotal = Math.max(1, ...data.map((d) => d.moneyIn + d.moneyOut))
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-medium text-ink-muted lg:text-[11px]">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-sm bg-emerald-500" aria-hidden />
+          Money in
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-sm bg-orange-500" aria-hidden />
+          Money out
+        </span>
+      </div>
+      <div className="flex items-end justify-between gap-1 lg:gap-1.5" style={{ height }}>
+        {data.map((d, i) => {
+          const total = d.moneyIn + d.moneyOut
+          const barHeightPct = grown ? (total / maxTotal) * 100 : 2
+          const outShare = total > 0 ? (d.moneyOut / total) * 100 : 0
+          const inShare = total > 0 ? (d.moneyIn / total) * 100 : 0
+          const empty = total === 0
+          const tip = empty
+            ? `${d.label}: no activity`
+            : `${d.label}: in ${formatAmount(d.moneyIn)}, out ${formatAmount(d.moneyOut)}`
+
+          return (
+            <div key={d.dayKey} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
+              <div className="flex w-full flex-1 items-end justify-center" title={tip}>
+                {empty ? (
+                  <div
+                    className={`w-full max-w-[22px] rounded-md ${d.isToday ? 'bg-zinc-300/50 dark:bg-zinc-600/50' : 'bg-zinc-200/60 dark:bg-zinc-700/40'}`}
+                    style={{
+                      height: '6%',
+                      transition: `height 0.7s cubic-bezier(0.22,1,0.36,1) ${i * 50}ms`,
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="flex w-full max-w-[22px] flex-col justify-end overflow-hidden rounded-md"
+                    style={{
+                      height: `${Math.max(barHeightPct, 4)}%`,
+                      transition: `height 0.7s cubic-bezier(0.22,1,0.36,1) ${i * 50}ms`,
+                    }}
+                  >
+                    {d.moneyIn > 0 && (
+                      <div
+                        className={`w-full ${d.isToday ? 'bg-emerald-500' : 'bg-emerald-500/25'}`}
+                        style={{ height: `${inShare}%`, minHeight: inShare > 0 ? 2 : 0 }}
+                      />
+                    )}
+                    {d.moneyOut > 0 && (
+                      <div
+                        className={`w-full ${d.isToday ? 'bg-orange-500' : 'bg-orange-500/25'}`}
+                        style={{ height: `${outShare}%`, minHeight: outShare > 0 ? 2 : 0 }}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+              <span
+                className={`text-[10px] font-medium lg:text-[11px] ${
+                  d.isToday ? 'font-bold text-ink' : 'text-ink-muted'
+                }`}
+              >
+                {d.label}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 /** Line + area chart with axes. data: [{ label, value }], tone: 'orange' | 'accent'. */
 export function DayChart({
   data = [],
