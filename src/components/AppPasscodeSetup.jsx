@@ -11,6 +11,7 @@ import {
   setPasscode,
   verifyPasscode,
 } from '../lib/appPasscode.js'
+import { clearBiometricPreference } from '../lib/biometrics.js'
 
 export default function AppPasscodeSetup({ userId }) {
   const { user } = useAuth()
@@ -62,6 +63,7 @@ export default function AppPasscodeSetup({ userId }) {
         return
       }
       removePasscode(userId)
+      clearBiometricPreference(userId)
       setEnabled(false)
       reset()
     } finally {

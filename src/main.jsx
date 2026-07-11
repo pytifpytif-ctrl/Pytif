@@ -7,6 +7,7 @@ import { AuthProvider } from './context/AuthContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import { BalanceProvider } from './context/BalanceContext.jsx'
 import { LiveDataProvider } from './context/LiveDataContext.jsx'
+import { initNativeApp, isNativeApp } from './lib/native.js'
 import './index.css'
 
 // Dev: drop any stale service worker (old PWA dev builds logged every Supabase fetch).
@@ -16,7 +17,7 @@ if (import.meta.env.DEV && 'serviceWorker' in navigator) {
   })
 }
 
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+if ('serviceWorker' in navigator && import.meta.env.PROD && !isNativeApp()) {
   registerSW({
     immediate: true,
     onOfflineReady() {
@@ -24,6 +25,8 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     },
   })
 }
+
+initNativeApp()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -36,6 +36,22 @@ body,
   height: 100%;
 }
 
+html.native-app,
+html.native-app body,
+html.native-app #root {
+  overscroll-behavior: none;
+}
+
+.native-safe-y {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.native-app .page-top-chrome {
+  padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+}
+
+
 body {
   margin: 0;
   background: rgb(var(--app));

@@ -46,7 +46,10 @@ export function requireJsonContentType(req: Request): Response | null {
   return null
 }
 
-/** Safaricom callback IP allowlist + optional shared webhook secret. */
+/** Safaricom callback verification.
+ * Production requires MPESA_CALLBACK_IP_ALLOWLIST (Safaricom cannot send custom headers).
+ * INTERNAL_WEBHOOK_SECRET is optional — only checked when the header is present (internal tools).
+ */
 export function verifyMpesaCallback(req: Request): { ok: true } | { ok: false; reason: string } {
   const env = (Deno.env.get('MPESA_ENV') ?? 'sandbox').toLowerCase()
   const ip = clientIp(req)
@@ -56,16 +59,21 @@ export function verifyMpesaCallback(req: Request): { ok: true } | { ok: false; r
     .map((s) => s.trim())
     .filter(Boolean)
 
-  if (allowlist.length > 0 && !allowlist.includes(ip)) {
+  if (env === 'production') {
+    if (allowlist.length === 0) {
+      return { ok: false, reason: 'production_callbacks_unconfigured' }
+    }
+    if (!allowlist.includes(ip)) {
+      return { ok: false, reason: `callback_ip_rejected:${ip}` }
+    }
+  } else if (allowlist.length > 0 && !allowlist.includes(ip)) {
     return { ok: false, reason: `callback_ip_rejected:${ip}` }
   }
 
   const secret = Deno.env.get('INTERNAL_WEBHOOK_SECRET') ?? ''
-  if (secret) {
-    const header = req.headers.get('x-jiokoe-webhook-secret') ?? ''
-    if (header !== secret) return { ok: false, reason: 'webhook_secret_invalid' }
-  } else if (env === 'production' && allowlist.length === 0) {
-    return { ok: false, reason: 'production_callbacks_unconfigured' }
+  const header = req.headers.get('x-jiokoe-webhook-secret') ?? ''
+  if (secret && header && header !== secret) {
+    return { ok: false, reason: 'webhook_secret_invalid' }
   }
 
   return { ok: true }

@@ -73,7 +73,7 @@ Safaricom does not provide a standard HMAC on STK/B2C JSON callbacks; defense re
 | Double-spend prevention | **DONE** | Balance check inside transaction |
 | Balance floor >= 0 | **DONE** | `chk_schedules_locked_balance_nonneg` (0012) |
 | Immutable transaction log | **DONE** | `guard_transactions_mutation` (0012) |
-| Amount cap Ksh 70,000 | **DONE** | DB constraints + `validateSendAmount` |
+| Amount cap Ksh 150,000 | **DONE** | DB constraints + `validateSendAmount` (0017) |
 | Daily reconciliation | **DONE** | `reconcile_locked_balances()` — schedule via pg_cron |
 | RLS automated tests | **DONE** | `supabase/tests/rls_security.test.sql` |
 
@@ -83,7 +83,7 @@ Safaricom does not provide a standard HMAC on STK/B2C JSON callbacks; defense re
 |-------------|--------|----------------|
 | Rate limits (auth, schedules, top-up) | **DONE** | `check_rate_limit` + per-endpoint keys |
 | M-Pesa phone regex 07/01 | **DONE** | `_shared/security.ts` |
-| Amount integer 1–70,000 | **DONE** | `_shared/security.ts` |
+| Amount integer 1–150,000 | **DONE** | `_shared/security.ts` |
 | Schedule name max 50 chars | **DONE** | `sanitizeText` |
 | Content-Type application/json | **DONE** | `requireJsonContentType` |
 | Security headers | **DONE** | `cors.ts` (edge), `vercel.json` (frontend) |
@@ -109,7 +109,7 @@ Safaricom does not provide a standard HMAC on STK/B2C JSON callbacks; defense re
 | Balance re-read before send | **DONE** | `b2c-send` + `mark_send_success` |
 | No double sends | **DONE** | Status `PENDING` → `PENDING_B2C_CONFIRM` with row lock |
 | Failed send — no auto retry | **DONE** | Marks FAILED; manual investigation |
-| Max send Ksh 70,000 | **DONE** | DB + edge validation |
+| Max send Ksh 150,000 | **DONE** | DB + edge validation |
 | Cron logging | **CONFIG** | Log `process_due_sends()` return value via pg_cron |
 
 ### 7. Infrastructure
@@ -135,8 +135,8 @@ MPESA_CONSUMER_KEY=...
 MPESA_CONSUMER_SECRET=...
 MPESA_PASSKEY=...
 MPESA_B2C_SECURITY_CREDENTIAL=...
-INTERNAL_WEBHOOK_SECRET=<random 32+ bytes>
-MPESA_CALLBACK_IP_ALLOWLIST=<safaricom IPs, comma-separated>
+INTERNAL_WEBHOOK_SECRET=<optional — internal tools only>
+MPESA_CALLBACK_IP_ALLOWLIST=<safaricom IPs — REQUIRED in production>
 APP_URL=https://your-production-domain.com
 ```
 

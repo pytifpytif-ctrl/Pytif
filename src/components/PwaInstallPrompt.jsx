@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Icon } from './icons.jsx'
 import { LogoMark } from './Logo.jsx'
-import { dismissPwaPrompt, isIos, isPwaDismissed, isStandalonePwa } from '../lib/pwa.js'
+import { dismissPwaPrompt, isStandalonePwa, isIos, isPwaDismissed } from '../lib/pwa.js'
+import { isNativeApp } from '../lib/native.js'
 
 export default function PwaInstallPrompt() {
   const [deferred, setDeferred] = useState(null)
@@ -9,7 +10,7 @@ export default function PwaInstallPrompt() {
   const [iosHint, setIosHint] = useState(false)
 
   useEffect(() => {
-    if (isStandalonePwa() || isPwaDismissed()) return undefined
+    if (isNativeApp() || isStandalonePwa() || isPwaDismissed()) return undefined
 
     if (isIos()) {
       const t = setTimeout(() => setVisible(true), 1200)
@@ -47,7 +48,7 @@ export default function PwaInstallPrompt() {
     setVisible(false)
   }
 
-  if (!visible || isStandalonePwa()) return null
+  if (!visible || isNativeApp() || isStandalonePwa()) return null
 
   return (
     <div className="fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] z-40 px-4 lg:bottom-6 lg:left-auto lg:right-6 lg:max-w-sm lg:px-0">

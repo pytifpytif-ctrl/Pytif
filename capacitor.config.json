@@ -1,0 +1,21 @@
+{
+  "appId": "com.jiokoe.app",
+  "appName": "Jiokoe",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "backgroundColor": "#171717",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "overlaysWebView": false
+    },
+    "Keyboard": {
+      "resize": "body"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Jiokoe</string>
+    <string name="title_activity_main">Jiokoe</string>
+    <string name="package_name">com.jiokoe.app</string>
+    <string name="custom_url_scheme">com.jiokoe.app</string>
+</resources>

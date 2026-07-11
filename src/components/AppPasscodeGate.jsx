@@ -1,13 +1,33 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { App } from '@capacitor/app'
 import { useAuth } from '../context/AuthContext.jsx'
-import { hasPasscode, isUnlocked, markUnlocked, verifyPasscode } from '../lib/appPasscode.js'
+import { hasPasscode, isUnlocked, markUnlocked, verifyPasscode, clearUnlock } from '../lib/appPasscode.js'
+import { isNativeApp } from '../lib/native.js'
 import { LogoMark } from './Logo.jsx'
 import PinPad from './PinPad.jsx'
 import ForgotPasscodeLink from './ForgotPasscodeLink.jsx'
+import BiometricUnlock from './BiometricUnlock.jsx'
 
 export default function AppPasscodeGate({ userId, children }) {
   const [unlocked, setUnlocked] = useState(() => isUnlocked(userId))
+
+  useEffect(() => {
+    setUnlocked(isUnlocked(userId))
+  }, [userId])
+
+  useEffect(() => {
+    if (!userId || !hasPasscode(userId) || !isNativeApp()) return undefined
+    const sub = App.addListener('appStateChange', ({ isActive }) => {
+      if (!isActive) {
+        clearUnlock(userId)
+        setUnlocked(false)
+      }
+    })
+    return () => {
+      sub.then((h) => h.remove())
+    }
+  }, [userId])
 
   if (!userId || !hasPasscode(userId) || unlocked) return children
 
@@ -49,7 +69,7 @@ function PasscodeLockScreen({ userId, onUnlock }) {
   }
 
   return (
-    <div className="app-bg-decor flex min-h-screen flex-col items-center justify-center bg-app px-6 py-10">
+    <div className="app-bg-decor flex min-h-screen flex-col items-center justify-center bg-app px-6 py-10 native-safe-y">
       <div className="flex w-full max-w-sm flex-col items-center text-center lg:max-w-md">
         <div className="mb-8 animate-scale-in">
           <LogoMark size={56} />
@@ -58,6 +78,8 @@ function PasscodeLockScreen({ userId, onUnlock }) {
         <p className="mt-1 max-w-xs text-sm text-ink-muted lg:max-w-sm">
           Enter your 4-digit app passcode to continue.
         </p>
+
+        <BiometricUnlock userId={userId} onUnlock={onUnlock} />
 
         <div className="mt-8 w-full max-w-xs animate-fade-in lg:rounded-3xl lg:border lg:border-line lg:bg-surface/80 lg:p-6 lg:shadow-card lg:backdrop-blur-sm">
           <PinPad onComplete={tryPin} error={error} disabled={busy} />

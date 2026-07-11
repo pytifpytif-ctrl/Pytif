@@ -6,6 +6,7 @@ import { Avatar, ScreenHeader, Spinner } from '../components/ui.jsx'
 import { Icon } from '../components/icons.jsx'
 import MpesaSetup from '../components/MpesaSetup.jsx'
 import AppPasscodeSetup from '../components/AppPasscodeSetup.jsx'
+import BiometricSetup from '../components/BiometricSetup.jsx'
 import { maskPhone } from '../lib/format.js'
 
 export default function Settings() {
@@ -183,6 +184,7 @@ export default function Settings() {
         <div>
           <SectionLabel>Security</SectionLabel>
           <AppPasscodeSetup userId={user?.id} />
+          <BiometricSetup userId={user?.id} />
         </div>
 
         {/* Preferences */}
